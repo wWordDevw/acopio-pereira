@@ -2,6 +2,7 @@
 
 PWA + API de inventario de insumos en Pereira. No es un módulo de Salvo.
 Repo: `wWordDevw/acopio-pereira`. Nombre visible: **Insumos Pereira**.
+Producción: **https://insumos.vowtech.lat** — web `/` y API `/api` en el mismo host.
 Volumen SQLite: `acopio_data` / `/data/acopio.sqlite` — **no renombrar** o se pierde la DB.
 
 ## TODO

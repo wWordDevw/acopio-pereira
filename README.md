@@ -2,6 +2,8 @@
 
 PWA para inventariar insumos de ayuda en Pereira. HTML nativo, mapa, GPS, botones + voz. API Node + SQLite.
 
+Producción: **https://insumos.vowtech.lat** (mapa, ficha y API `/api`).
+
 ## Local
 
 ```bash
@@ -42,10 +44,10 @@ GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits e
 
 ## Dokploy
 
-Un proyecto **Insumos Pereira**, dos Applications:
+Un proyecto **Insumos Pereira**, dos Applications, dominio **insumos.vowtech.lat**:
 
-1. **web** — Static, build path `/public`, path `/`, puerto 80.
-2. **api** — Compose `docker-compose.prod.yml` (volumen `acopio_data` → `/data`). Mismo host, path `/api`, Strip Path off, puerto 3000, service `api`. Sin esto el SQLite se borra en cada deploy.
+1. **web** — Static, build path `/public`, host `insumos.vowtech.lat`, path `/`, puerto 80.
+2. **api** — Compose `docker-compose.prod.yml` (volumen `acopio_data` → `/data`). Mismo host, path `/api`, Strip Path off, puerto 3000, service `api`. Sin esto el SQLite se borra en cada deploy. El `/api` tiene que existir en **cada** host de la web; si no, el mapa sale vacío y crear dice “sin red”.
 
 No publiques puertos Docker a `0.0.0.0`.
 
