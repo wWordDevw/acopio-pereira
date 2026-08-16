@@ -254,6 +254,7 @@ textarea {
   font-size: 0.78rem;
   box-shadow: 0 1px 4px #0003;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .leaflet-tooltip.pin-label.leaflet-tooltip-top::before {

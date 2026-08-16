@@ -1,5 +1,5 @@
 import { listPuntos } from "./api.js";
-import { PEREIRA, stockResumen, errorText } from "./categorias.js";
+import { PEREIRA, errorText } from "./categorias.js";
 
 function pinIcon(lleno) {
   return L.divIcon({
@@ -197,23 +197,16 @@ async function main() {
         zIndexOffset: 400,
       }).addTo(map);
       const href = `/punto.html?id=${encodeURIComponent(p.id)}`;
-      const popup = document.createElement("div");
-      popup.className = "pin-popup";
-      const name = document.createElement("strong");
-      name.textContent = p.nombre;
-      const line = document.createElement("p");
-      line.textContent = stockResumen(p.inventario);
-      const link = document.createElement("a");
-      link.href = href;
-      link.textContent = "Abrir punto";
-      popup.append(name, line, link);
-      marker.bindPopup(popup);
+      marker.on("click", () => {
+        window.location.assign(href);
+      });
       marker.bindTooltip(p.nombre, {
         permanent: true,
         direction: "top",
         offset: [0, -6],
         className: "pin-label",
         opacity: 1,
+        interactive: false,
       });
     }
     fitVista(map, me);
