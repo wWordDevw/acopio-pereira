@@ -188,6 +188,7 @@ async function main() {
   const dictado = qs("dictado");
   const mic = qs("mic");
   let listener = null;
+  let organizando = false;
 
   function showRevision() {
     revision.hidden = draft.items.length === 0;
@@ -202,6 +203,8 @@ async function main() {
       status.classList.add("is-error");
       return;
     }
+    if (organizando) return;
+    organizando = true;
     status.textContent = "Organizando…";
     status.classList.remove("is-error", "is-ok");
     try {
@@ -209,6 +212,8 @@ async function main() {
       if (!append) {
         draft.items = [];
         draft.textos = [];
+      } else if (draft.textos[draft.textos.length - 1] === data.texto) {
+        return;
       }
       draft.textos.push(data.texto);
       draft.items.push(...data.items);
@@ -219,6 +224,8 @@ async function main() {
     } catch (err) {
       status.textContent = errorText(err);
       status.classList.add("is-error");
+    } finally {
+      organizando = false;
     }
   }
 

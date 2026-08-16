@@ -5,6 +5,36 @@ export function canSpeak() {
   );
 }
 
+export function unirDictado(finals, interim) {
+  return [...finals, interim].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+export function aplicarResultados(finals, results, resultIndex) {
+  let interim = "";
+  const start = Number.isInteger(resultIndex) && resultIndex > 0 ? resultIndex : 0;
+  for (let i = start; i < results.length; i += 1) {
+    const piece = results[i] && results[i][0] && results[i][0].transcript;
+    if (!piece) continue;
+    const text = String(piece).trim();
+    if (!text) continue;
+    if (results[i].isFinal) {
+      if (text !== finals[finals.length - 1]) finals.push(text);
+    } else {
+      interim = interim ? `${interim} ${text}` : text;
+    }
+  }
+  return { finals, interim };
+}
+
+export function entregarUnaVez(fn) {
+  let done = false;
+  return (value) => {
+    if (done) return;
+    done = true;
+    if (fn) fn(value);
+  };
+}
+
 export function createDictado({ onPartial, onReady, onError }) {
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Ctor) {
@@ -15,46 +45,50 @@ export function createDictado({ onPartial, onReady, onError }) {
   let stopped = true;
   const finals = [];
   let interim = "";
+  const ready = entregarUnaVez(onReady);
 
   function joined() {
-    return [...finals, interim].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    return unirDictado(finals, interim);
+  }
+
+  function bind(instance) {
+    instance.lang = "es-CO";
+    instance.continuous = true;
+    instance.interimResults = true;
+    instance.onresult = (ev) => {
+      const next = aplicarResultados(finals, ev.results, ev.resultIndex);
+      interim = next.interim;
+      if (onPartial) onPartial(joined());
+    };
+    instance.onerror = (ev) => {
+      if (ev.error === "no-speech" || ev.error === "aborted") return;
+      if (onError) onError(ev.error);
+    };
+    instance.onend = () => {
+      if (stopped) {
+        ready(joined());
+        return;
+      }
+      listen();
+    };
+  }
+
+  function listen() {
+    rec = new Ctor();
+    bind(rec);
+    try {
+      rec.start();
+    } catch {
+      stopped = true;
+      ready(joined());
+    }
   }
 
   function start() {
     stopped = false;
     finals.length = 0;
     interim = "";
-    rec = new Ctor();
-    rec.lang = "es-CO";
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = (ev) => {
-      interim = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i += 1) {
-        const piece = ev.results[i][0] && ev.results[i][0].transcript;
-        if (!piece) continue;
-        if (ev.results[i].isFinal) finals.push(String(piece).trim());
-        else interim = String(piece).trim();
-      }
-      if (onPartial) onPartial(joined());
-    };
-    rec.onerror = (ev) => {
-      if (ev.error === "no-speech" || ev.error === "aborted") return;
-      if (onError) onError(ev.error);
-    };
-    rec.onend = () => {
-      if (stopped) {
-        if (onReady) onReady(joined());
-        return;
-      }
-      try {
-        rec.start();
-      } catch {
-        stopped = true;
-        if (onReady) onReady(joined());
-      }
-    };
-    rec.start();
+    listen();
   }
 
   function stop() {
@@ -63,7 +97,7 @@ export function createDictado({ onPartial, onReady, onError }) {
     try {
       if (rec) rec.stop();
     } catch {
-      if (onReady) onReady(joined());
+      ready(joined());
     }
   }
 
