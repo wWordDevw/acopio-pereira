@@ -45,7 +45,7 @@ GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits e
 Un proyecto **Acopio Pereira**, dos Applications:
 
 1. **web** — Static, build path `/public`, path `/`, puerto 80.
-2. **api** — Dockerfile `api/Dockerfile`, context `api`, env `PORT=3000`, `SQLITE_PATH=/data/acopio.sqlite`, `TRUST_PROXY=1`, mismo host, path `/api`, Strip Path off, puerto 3000.
+2. **api** — Compose `docker-compose.prod.yml` (volumen `acopio_data` → `/data`). Mismo host, path `/api`, Strip Path off, puerto 3000, service `api`. Sin esto el SQLite se borra en cada deploy.
 
 No publiques puertos Docker a `0.0.0.0`.
 

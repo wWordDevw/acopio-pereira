@@ -1,0 +1,19 @@
+# Dokploy Compose — API with persistent SQLite. No public ports.
+# Traefik reaches the service via the Dokploy network (domain path /api).
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      SQLITE_PATH: /data/acopio.sqlite
+      TRUST_PROXY: "1"
+    volumes:
+      - acopio_data:/data
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+volumes:
+  acopio_data:
