@@ -1,13 +1,20 @@
 import { listPuntos } from "./api.js";
 import { PEREIRA, errorText } from "./categorias.js";
 
-function pinIcon(lleno) {
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/"/g, "&quot;");
+}
+
+function pinIcon(lleno, href, nombre) {
+  const cls = lleno ? " is-full" : "";
   return L.divIcon({
-    className: `pin-wrap${lleno ? " is-full" : ""}`,
-    html: `<span class="pin${lleno ? " is-full" : ""}"></span>`,
+    className: `pin-wrap${cls}`,
+    html: `<a class="pin-hit" href="${escapeHtml(href)}" aria-label="${escapeHtml(nombre)}"><span class="pin${cls}"></span></a>`,
     iconSize: [36, 48],
     iconAnchor: [18, 46],
-    popupAnchor: [0, -40],
     tooltipAnchor: [0, -42],
   });
 }
@@ -191,15 +198,26 @@ async function main() {
       status.textContent = "Aún no hay puntos. Crea el primero.";
     }
     for (const p of puntos) {
+      const href = `/punto.html?id=${encodeURIComponent(p.id)}`;
       const marker = L.marker([p.lat, p.lng], {
-        icon: pinIcon(p.tiene_stock),
+        icon: pinIcon(p.tiene_stock, href, p.nombre),
         title: p.nombre,
+        keyboard: true,
         zIndexOffset: 400,
       }).addTo(map);
-      const href = `/punto.html?id=${encodeURIComponent(p.id)}`;
-      marker.on("click", () => {
-        window.location.assign(href);
-      });
+      const icon = marker.getElement();
+      if (icon) {
+        icon.addEventListener(
+          "click",
+          (ev) => {
+            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            window.location.assign(href);
+          },
+          true,
+        );
+      }
       marker.bindTooltip(p.nombre, {
         permanent: true,
         direction: "top",

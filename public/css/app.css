@@ -244,6 +244,12 @@ textarea {
   border: 0;
 }
 
+.pin-hit {
+  display: block;
+  width: 36px;
+  height: 48px;
+}
+
 .leaflet-tooltip.pin-label {
   padding: 0.15rem 0.4rem;
   border: 2px solid var(--line);
