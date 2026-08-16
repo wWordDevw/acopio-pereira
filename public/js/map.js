@@ -11,14 +11,73 @@ function pinIcon(lleno) {
   });
 }
 
-function locate(map) {
-  if (!navigator.geolocation) return;
+function yoIcon() {
+  return L.divIcon({
+    className: "yo-wrap",
+    html: '<span class="yo-dot"><span class="yo-pulse"></span></span>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+}
+
+function locate(map, layers, status) {
+  if (!navigator.geolocation) {
+    if (status) {
+      status.textContent = "Este celular no da GPS.";
+      status.classList.add("is-error");
+    }
+    return;
+  }
+  if (status) {
+    status.textContent = "Buscando tu ubicación…";
+    status.classList.remove("is-error");
+  }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+      const latlng = [pos.coords.latitude, pos.coords.longitude];
+      const acc = Number.isFinite(pos.coords.accuracy)
+        ? Math.max(20, pos.coords.accuracy)
+        : 40;
+      map.setView(latlng, 16);
+      if (layers.marker) {
+        layers.marker.setLatLng(latlng);
+      } else {
+        layers.marker = L.marker(latlng, {
+          icon: yoIcon(),
+          zIndexOffset: 800,
+          keyboard: false,
+          title: "Estás aquí",
+        }).addTo(map);
+        layers.marker.bindPopup("Estás aquí");
+      }
+      if (layers.circle) {
+        layers.circle.setLatLng(latlng);
+        layers.circle.setRadius(acc);
+      } else {
+        layers.circle = L.circle(latlng, {
+          radius: acc,
+          className: "yo-accuracy",
+          interactive: false,
+          stroke: true,
+          fill: true,
+        }).addTo(map);
+      }
+      layers.marker.openPopup();
+      if (status) {
+        status.textContent = "Estás aquí. Pin naranja = hay insumos.";
+      }
     },
-    () => {},
-    { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 },
+    (err) => {
+      if (!status) return;
+      status.classList.add("is-error");
+      if (err && err.code === 1) {
+        status.textContent =
+          "Activa el permiso de ubicación en el navegador y vuelve a tocar Mi ubicación.";
+        return;
+      }
+      status.textContent = "No se pudo leer el GPS. Intenta de nuevo.";
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 },
   );
 }
 
@@ -36,10 +95,10 @@ async function main() {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
 
+  const me = { marker: null, circle: null };
   document.getElementById("btn-ubicacion")?.addEventListener("click", () => {
-    locate(map);
+    locate(map, me, status);
   });
-  locate(map);
 
   try {
     const data = await listPuntos();

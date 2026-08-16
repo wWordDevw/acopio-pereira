@@ -235,6 +235,50 @@ textarea {
   border: 0;
 }
 
+.yo-wrap {
+  background: transparent;
+  border: 0;
+}
+
+.yo-dot {
+  display: block;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin: 4px;
+  border-radius: 50%;
+  background: #1d6fd4;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #163f7a;
+}
+
+.yo-pulse {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: #1d6fd4;
+  opacity: 0.35;
+  animation: yo-pulse 1.6s ease-out infinite;
+}
+
+@keyframes yo-pulse {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+path.yo-accuracy {
+  stroke: #1d6fd4;
+  fill: #1d6fd4;
+  fill-opacity: 0.14;
+  stroke-width: 2px;
+}
+
 .toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
