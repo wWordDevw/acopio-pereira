@@ -21,14 +21,14 @@ Hoy el inventario solo se consulta en la PWA (`https://insumos.vowtech.lat`). En
 |------|----------|
 | Alcance V1 | Consulta conversacional (2–3 turnos). No registrar stock. |
 | Número | Chip / WhatsApp normal. Sesión por QR. Un solo número. |
-| Tubería | **WAHA** con motor **NOWEB** (familia Baileys detrás de HTTP). No Baileys crudo. No Cloud API. |
+| Tubería | **WAHA ya desplegado** en `https://waha.vowtech.lat` (proyecto Dokploy `WAHA`, compose `waha-hqxniz`). No se vuelve a desplegar WAHA en este repo. No Baileys crudo. No Cloud API. |
 | Ubicación | Barrio o zona **por texto**. No pin GPS de WhatsApp. |
 | Entender | `parseVoz` + categorías + lista de zonas primero. **LLM solo si no entiende.** |
 | LLM | Router intercambiable (contrato `complete`). V1: **MiniMax-M3** vía OpenAI-compatible. |
 | Voz | **Fuera de V1.** Nota de voz / sticker / imagen → pedir texto. |
 | Inventario | Solo `GET /api/consultar` (y `GET /api/puntos/:id` si hace falta). El modelo no inventa stock. |
 | Persistencia de chat | Estado 15 min en memoria del bot. No guardar chats ni teléfonos en SQLite. |
-| Deploy | Mismo stack Dokploy. WAHA y bot **sin puertos públicos**. Sesión WAHA en volumen. |
+| Deploy | Bot en el compose de la API (`api-persistente`). WAHA es el servicio existente. Bot **sin puertos públicos**. Sesión dedicada `insumos` en el WAHA compartido. |
 | PWA | Publicar `wa.me/<número>` cuando el número esté vivo. |
 
 ---
@@ -149,40 +149,44 @@ Campos null si no hay. Si el texto no es JSON válido, se trata como “no enten
 
 ## Arquitectura
 
-Tres procesos. La API de inventario **no cambia de contrato**. El bot importa `parseVoz` y `categorias` desde `api/src/` (mismo repo). No se reimplementa el diccionario.
+Tres piezas (API + bot en este repo; WAHA ya existe). La API de inventario **no cambia de contrato**. El bot importa `parseVoz` y `categorias` desde `api/src/` (mismo repo). No se reimplementa el diccionario.
 
 ```
 Celular WhatsApp
-    → WAHA (NOWEB, sesión en volumen)
-         webhook HTTP interno
-    → bot
+    → WAHA existente (https://waha.vowtech.lat, sesión `insumos`)
+         webhook HTTPS
+    → bot (mismo compose que la API)
          parseVoz / zonas / (si hace falta) MiniMax
          GET http://api:3000/api/consultar
-         POST interno a WAHA (enviar texto)
+         POST https://waha.vowtech.lat/api/sendText
     → respuesta al celular
 ```
 
-| Servicio | Qué hace | Persistencia |
-|----------|----------|--------------|
-| **api** | SQLite, `/api/consultar`, `parseVoz` | Volumen `acopio_data` / `/data/acopio.sqlite` — **no renombrar** |
-| **waha** | QR, sesión, recibir/enviar texto | Volumen `waha_sessions` |
-| **bot** | Diálogo, router LLM, plantillas, rate limit | Estado 15 min en memoria |
+| Servicio | Dónde | Persistencia |
+|----------|-------|--------------|
+| **api** | compose `api-persistente` | Volumen `acopio_data` — **no renombrar** |
+| **waha** | proyecto Dokploy **WAHA** (`waha.vowtech.lat`) | Sus volúmenes `waha_sessions` / `waha_media`. No tocarlos desde este repo. |
+| **bot** | mismo compose que `api` | Estado 15 min en memoria |
 
-WAHA y el bot **no** se publican a internet. Traefik sigue sirviendo solo web `/` + API `/api` en `insumos.vowtech.lat`. El webhook es `http://bot:<puerto>/webhook` en la red Docker. WAHA llama al bot; el bot llama a WAHA y a `http://api:3000`.
+El bot llama a `WAHA_BASE=https://waha.vowtech.lat` con `WAHA_API_KEY` (la del proyecto WAHA). Sesión `WAHA_SESSION=insumos` para no pisar otras apps.
+
+Webhook: Traefik en `insumos.vowtech.lat` path `/wa-hook` → bot `:3001` (`stripPath` off; el server acepta `/wa-hook` y `/webhook`). La sesión `insumos` se configura con `url: https://insumos.vowtech.lat/wa-hook` y `events: ["message"]`. Si hay `WEBHOOK_SECRET`, el bot exige el header `X-Webhook-Secret`.
 
 ### QR (una vez)
 
-La sesión no debe pedirse en cada deploy (volumen). Para el primer escaneo: SSH + bind `127.0.0.1` al dashboard de WAHA, o `GET` interno de la sesión / imagen QR. Nunca `0.0.0.0` ni dominio público del dashboard.
+El dashboard ya está en `https://waha.vowtech.lat`. Escanear el QR de la sesión **insumos** ahí. No publicar otro dashboard ni otro contenedor WAHA.
 
 ### Compose
 
-Extender `docker-compose.prod.yml` (o un compose hermano en el mismo proyecto Dokploy) con `waha` y `bot`. `expose` interno. Sin `ports:` públicos. El volumen de WAHA es distinto de `acopio_data`.
+Extender `docker-compose.prod.yml` **solo con `bot`**. No hay servicio `waha` aquí.
 
 El bot recibe por env:
 
 - `API_BASE=http://api:3000`
-- `WAHA_BASE=http://waha:3000`
-- `WAHA_API_KEY` / `WAHA_SESSION`
+- `WAHA_BASE=https://waha.vowtech.lat`
+- `WAHA_API_KEY` (secret del proyecto WAHA)
+- `WAHA_SESSION=insumos`
+- `WEBHOOK_SECRET` (opcional)
 - `LLM_*` (arriba)
 - `PUBLIC_WEB=https://insumos.vowtech.lat`
 
@@ -240,7 +244,7 @@ Criterio de listo (manual): desde un celular ajeno, «dónde hay comida» → al
 
 ## Criterio de listo
 
-- [ ] WAHA en Dokploy, sesión persistente, sin puertos públicos.
+- [ ] Bot habla con el WAHA existente (`waha.vowtech.lat`), sesión `insumos` persistente. Sin desplegar otro WAHA.
 - [ ] Webhook de texto → interpretar → consultar → respuesta ≤ 3 puntos.
 - [ ] Conversación de seguimiento (categoría o zona que faltaba).
 - [ ] MiniMax solo como fallback; se puede apagar sin romper el bot.

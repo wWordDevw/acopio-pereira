@@ -19,7 +19,7 @@
 - Rate limit: 20 mensajes por número WhatsApp por hora.
 - Idempotencia: mismo `message.id` no vuelve a consultar ni responder.
 - Máx. 3 puntos. Links `https://www.google.com/maps?q=LAT,LNG` y `https://insumos.vowtech.lat/punto.html?id=`.
-- Sin puertos Docker públicos. WAHA y bot solo red interna. Volumen `waha_sessions` distinto de `acopio_data`.
+- Sin puertos Docker públicos. **No desplegar WAHA en este repo.** Cliente: `WAHA_BASE=https://waha.vowtech.lat`, sesión `insumos`. Webhook público path `/wa-hook` en `insumos.vowtech.lat`.
 - Sin estilos inline. Tailwind no aplica (PWA usa CSS propio).
 - Tests: `node --test` (mismo estilo que `api/test`). Conventional commits.
 - Worktree: `/home/alore/projects/acopio-pereira/.worktrees/whatsapp-bot` en `feat/whatsapp-bot`.
@@ -556,18 +556,18 @@ git commit -m "feat: wa.me en PWA vía /api/salud"
 
 ---
 
-### Task 8: Compose Dokploy + docs
+### Task 8: Compose bot (WAHA existente) + docs
 
 **Files:**
 - Create: `bot/Dockerfile`
-- Modify: `docker-compose.prod.yml`
-- Modify: `docker-compose.yml` (optional local `127.0.0.1` only if needed for bot/waha)
-- Modify: `CLAUDE.md` (marcar TODO del bot como en progreso / actualizar alcance V1 sin STT)
-- Modify: `README.md` (arquitectura bot, env)
+- Modify: `docker-compose.prod.yml` (solo servicio `bot`; **prohibido** servicio `waha`)
+- Modify: `bot/src/server.js` — aceptar path `/wa-hook` igual que `/webhook`; default `WAHA_BASE=https://waha.vowtech.lat`, `WAHA_SESSION=insumos`; si `WEBHOOK_SECRET` está set, exigir header `X-Webhook-Secret` (si no coincide → 401 `{ error: "no_autorizado" }`)
+- Modify: `bot/test/webhook.test.js` — caso `/wa-hook` y secret
+- Modify: `CLAUDE.md`, `README.md`
 
 **Interfaces:**
-- Consumes: services `api` existing
-- Produces: `waha` + `bot` on internal network
+- Consumes: WAHA ya vivo en `https://waha.vowtech.lat` (Dokploy proyecto WAHA, compose `waha-hqxniz`)
+- Produces: solo `bot` en el compose de la API
 
 `bot/Dockerfile` (build context = repo root):
 
@@ -584,21 +584,9 @@ EXPOSE 3001
 CMD ["node", "src/server.js"]
 ```
 
-`docker-compose.prod.yml` add (no public `ports:`):
+`docker-compose.prod.yml` add **only** (no `waha`, no `waha_sessions`, no public `ports:`):
 
 ```yaml
-  waha:
-    image: devlikeapro/waha:noweb
-    environment:
-      WHATSAPP_DEFAULT_ENGINE: NOWEB
-      WHATSAPP_HOOK_URL: http://bot:3001/webhook
-      WHATSAPP_HOOK_EVENTS: message
-      WAHA_API_KEY: ${WAHA_API_KEY}
-    volumes:
-      - waha_sessions:/app/.sessions
-    expose:
-      - "3000"
-    restart: unless-stopped
   bot:
     build:
       context: .
@@ -607,9 +595,10 @@ CMD ["node", "src/server.js"]
       PORT: "3001"
       API_BASE: http://api:3000
       PUBLIC_WEB: https://insumos.vowtech.lat
-      WAHA_BASE: http://waha:3000
+      WAHA_BASE: https://waha.vowtech.lat
       WAHA_API_KEY: ${WAHA_API_KEY}
-      WAHA_SESSION: default
+      WAHA_SESSION: insumos
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       LLM_PROVIDER: minimax
       LLM_BASE_URL: https://api.minimax.io/v1
       LLM_MODEL: MiniMax-M3
@@ -618,26 +607,21 @@ CMD ["node", "src/server.js"]
       - "3001"
     depends_on:
       - api
-      - waha
     restart: unless-stopped
 ```
 
-Volumes: keep `acopio_data`; add `waha_sessions`. Never rename `acopio_data`.
+Keep volume `acopio_data` only. Never rename it.
 
-`CLAUDE.md`: V1 bot = texto, WAHA NOWEB, MiniMax fallback, no STT. QR por SSH/`127.0.0.1`, nunca dashboard público. Issue #1 se cierra cuando el criterio de listo del spec esté en prod.
+`CLAUDE.md`: V1 bot = texto; **reusa** `https://waha.vowtech.lat` (no segundo WAHA); sesión `insumos`; MiniMax fallback; no STT. QR en el dashboard existente. Issue #1 se cierra cuando el criterio de listo esté en prod.
 
-`README.md`: párrafo del bot + tabla de env. No documentar puertos públicos.
+`README.md`: el bot llama a WAHA existente; tabla de env; webhook `https://insumos.vowtech.lat/wa-hook` (Dokploy domain path, stripPath false).
 
-If local compose adds waha/bot, bind only `127.0.0.1:3001:3001` for the bot if needed; WAHA dashboard if present only `127.0.0.1:3002:3000`. Prefer no host ports for WAHA.
-
-- [ ] **Step 1: Write Dockerfile + compose**
-
+- [ ] **Step 1: Dockerfile + compose (sin servicio waha) + /wa-hook + secret**
 - [ ] **Step 2: `cd bot && node --test` and `cd api && node --test`** — still green
-
 - [ ] **Step 3: Commit**
 
 ```bash
-git commit -m "chore: WAHA y bot en compose sin puertos públicos"
+git commit -m "chore: bot en compose usando WAHA existente de vowtech"
 ```
 
 ---
@@ -654,6 +638,6 @@ git commit -m "chore: WAHA y bot en compose sin puertos públicos"
 | Sin audio V1 | 5, 6 |
 | Rate 20/h, idempotencia, no PII SQLite | 5 |
 | WAHA webhook, no grupos | 6 |
-| Tres servicios, no public ports, volumen sesión | 8 |
+| Bot + API en compose; WAHA existente `waha.vowtech.lat`; no public ports | 8 |
 | `/api/salud.whatsapp` + wa.me | 7 |
 | Future STT | not implemented (correct) |
