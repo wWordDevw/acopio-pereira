@@ -1,20 +1,13 @@
 import { listPuntos } from "./api.js";
-import { PEREIRA, errorText } from "./categorias.js";
+import { PEREIRA, stockResumen, errorText } from "./categorias.js";
 
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/"/g, "&quot;");
-}
-
-function pinIcon(lleno, href, nombre) {
-  const cls = lleno ? " is-full" : "";
+function pinIcon(lleno) {
   return L.divIcon({
-    className: `pin-wrap${cls}`,
-    html: `<a class="pin-hit" href="${escapeHtml(href)}" aria-label="${escapeHtml(nombre)}"><span class="pin${cls}"></span></a>`,
+    className: `pin-wrap${lleno ? " is-full" : ""}`,
+    html: `<span class="pin${lleno ? " is-full" : ""}"></span>`,
     iconSize: [36, 48],
     iconAnchor: [18, 46],
+    popupAnchor: [0, -40],
     tooltipAnchor: [0, -42],
   });
 }
@@ -198,26 +191,23 @@ async function main() {
       status.textContent = "Aún no hay puntos. Crea el primero.";
     }
     for (const p of puntos) {
-      const href = `/punto.html?id=${encodeURIComponent(p.id)}`;
       const marker = L.marker([p.lat, p.lng], {
-        icon: pinIcon(p.tiene_stock, href, p.nombre),
+        icon: pinIcon(p.tiene_stock),
         title: p.nombre,
-        keyboard: true,
         zIndexOffset: 400,
       }).addTo(map);
-      const icon = marker.getElement();
-      if (icon) {
-        icon.addEventListener(
-          "click",
-          (ev) => {
-            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-            ev.preventDefault();
-            ev.stopPropagation();
-            window.location.assign(href);
-          },
-          true,
-        );
-      }
+      const href = `/punto.html?id=${encodeURIComponent(p.id)}`;
+      const popup = document.createElement("div");
+      popup.className = "pin-popup";
+      const name = document.createElement("strong");
+      name.textContent = p.nombre;
+      const line = document.createElement("p");
+      line.textContent = stockResumen(p.inventario);
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = "Abrir punto";
+      popup.append(name, line, link);
+      marker.bindPopup(popup);
       marker.bindTooltip(p.nombre, {
         permanent: true,
         direction: "top",
