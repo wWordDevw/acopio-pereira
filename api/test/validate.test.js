@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { validatePunto, validateMovimiento } from "../src/validate.js";
+import {
+  validatePunto,
+  validateMovimiento,
+  validateConsulta,
+} from "../src/validate.js";
 
 const KEY = "11111111-1111-1111-1111-111111111111";
 
@@ -70,5 +74,34 @@ describe("validateMovimiento", () => {
     });
     assert.equal(r.ok, false);
     assert.equal(r.error, "tipo_invalido");
+  });
+});
+
+describe("validateConsulta", () => {
+  it("treats q=cobijas as categoria", () => {
+    const r = validateConsulta({ q: "Cobijas" });
+    assert.equal(r.ok, true);
+    assert.equal(r.value.categoria, "cobijas");
+    assert.equal(r.value.q, null);
+    assert.equal(r.value.con_stock, true);
+  });
+
+  it("keeps a place name as q", () => {
+    const r = validateConsulta({ q: "Cuba" });
+    assert.equal(r.ok, true);
+    assert.equal(r.value.q, "Cuba");
+    assert.equal(r.value.categoria, null);
+  });
+
+  it("rejects a bad categoria", () => {
+    const r = validateConsulta({ categoria: "piedras" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "categoria_invalida");
+  });
+
+  it("requires lat and lng together", () => {
+    const r = validateConsulta({ lat: "4.81" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "coordenada_invalida");
   });
 });

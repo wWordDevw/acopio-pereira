@@ -22,6 +22,24 @@ docker compose up --build
 
 El HTML llama `/api/...` en el mismo origen.
 
+## API pública (para otros devs)
+
+Documentación interactiva (Swagger UI):
+
+- Local: `http://127.0.0.1:3000/api/docs`
+- OpenAPI: `GET /api/openapi.json`
+- Consulta rápida: `GET /api/consultar?q=cobijas`
+
+Ejemplos:
+
+```bash
+curl http://127.0.0.1:3000/api/consultar?q=agua
+curl 'http://127.0.0.1:3000/api/puntos?lat=4.8133&lng=-75.6961&radio=3'
+curl http://127.0.0.1:3000/api/puntos
+```
+
+GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits está en Swagger.
+
 ## Dokploy
 
 Un proyecto **Acopio Pereira**, dos Applications:

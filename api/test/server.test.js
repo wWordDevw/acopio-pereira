@@ -162,4 +162,42 @@ describe("server", () => {
     assert.equal(r.status, 400);
     assert.equal(r.body.error, "fuera_de_zona");
   });
+
+  it("consulta by category returns only matching stock", async () => {
+    const a = await post("/api/puntos", {
+      nombre: "Punto Agua",
+      lat: 4.813,
+      lng: -75.696,
+      idempotency_key: KEY(12),
+    });
+    await post(`/api/puntos/${a.body.id}/movimientos`, {
+      tipo: "entra",
+      categoria: "agua",
+      cantidad: 8,
+      idempotency_key: KEY(13),
+    });
+    const res = await fetch(`${base}/api/consultar?q=agua`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("access-control-allow-origin"), "*");
+    const data = await res.json();
+    assert.equal(data.consulta.categoria, "agua");
+    assert.ok(data.total >= 1);
+    assert.ok(data.puntos.every((p) => p.inventario.some((i) => i.categoria === "agua")));
+  });
+
+  it("serves OpenAPI and Swagger UI", async () => {
+    const specRes = await fetch(`${base}/api/openapi.json`);
+    assert.equal(specRes.status, 200);
+    const spec = await specRes.json();
+    assert.equal(spec.openapi, "3.0.3");
+    assert.ok(spec.paths["/api/consultar"]);
+    assert.ok(spec.paths["/api/puntos"]);
+    const docs = await fetch(`${base}/api/docs`);
+    assert.equal(docs.status, 200);
+    const html = await docs.text();
+    assert.match(html, /swagger-ui/);
+    const cat = await fetch(`${base}/api`);
+    const index = await cat.json();
+    assert.equal(index.documentacion, "/api/docs");
+  });
 });

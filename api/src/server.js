@@ -13,21 +13,75 @@ import {
   stockByPunto,
   hitRateLimit,
 } from "./db.js";
-import { validatePunto, validateMovimiento, validatePuntoId } from "./validate.js";
+import {
+  validatePunto,
+  validateMovimiento,
+  validatePuntoId,
+  validateConsulta,
+} from "./validate.js";
 import { parseVoz } from "./parse-voz.js";
-import { ETIQUETAS } from "./categorias.js";
+import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
+import { filtrarPuntos } from "./consultar.js";
+import { buildOpenApi } from "./openapi.js";
+import { swaggerHtml, swaggerInitJs } from "./swagger-html.js";
 
 const PUNTOS_LIMIT = { windowMs: 60 * 60 * 1000, limit: 30 };
 const MOV_LIMIT = { windowMs: 60 * 1000, limit: 60 };
 
-function json(res, status, body) {
+const CORS_GET = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-headers": "content-type",
+  "access-control-max-age": "86400",
+};
+
+function json(res, status, body, extra = {}) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(payload),
     "cache-control": "no-store",
+    ...CORS_GET,
+    ...extra,
   });
   res.end(payload);
+}
+
+function sendText(res, status, body, contentType) {
+  res.writeHead(status, {
+    "content-type": contentType,
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "no-store",
+    ...CORS_GET,
+  });
+  res.end(body);
+}
+
+function requestOrigin(req) {
+  const protoHeader = req.headers["x-forwarded-proto"];
+  const proto =
+    typeof protoHeader === "string" && protoHeader.length > 0
+      ? protoHeader.split(",")[0].trim()
+      : "http";
+  const hostHeader = req.headers["x-forwarded-host"] || req.headers.host;
+  const host = typeof hostHeader === "string" ? hostHeader.split(",")[0].trim() : "";
+  return host ? `${proto}://${host}` : "";
+}
+
+function queryFrom(url) {
+  return {
+    q: url.searchParams.get("q"),
+    categoria: url.searchParams.get("categoria"),
+    con_stock: url.searchParams.get("con_stock"),
+    lat: url.searchParams.get("lat"),
+    lng: url.searchParams.get("lng"),
+    radio: url.searchParams.get("radio"),
+    limit: url.searchParams.get("limit"),
+  };
+}
+
+function listFiltered(db, parsed) {
+  return filtrarPuntos(listPuntos(db), parsed);
 }
 
 function readBody(req, limit = 16_000) {
@@ -87,6 +141,7 @@ function publicPunto(row, inventario = []) {
       stock: i.stock,
     })),
     tiene_stock: inventario.some((i) => i.stock > 0),
+    ...(row.distancia_km != null ? { distancia_km: row.distancia_km } : {}),
   };
 }
 
@@ -109,6 +164,12 @@ export function createServer({ db, trustProxy = false }) {
       const url = new URL(req.url || "/", "http://127.0.0.1");
       const path = url.pathname;
 
+      if (req.method === "OPTIONS" && path.startsWith("/api")) {
+        res.writeHead(204, CORS_GET);
+        res.end();
+        return;
+      }
+
       if (
         req.method === "GET" &&
         (path === "/api/salud" || path === "/api/health")
@@ -117,8 +178,71 @@ export function createServer({ db, trustProxy = false }) {
         return;
       }
 
+      if (req.method === "GET" && path === "/api/docs/init.js") {
+        sendText(res, 200, swaggerInitJs(), "text/javascript; charset=utf-8");
+        return;
+      }
+
+      if (req.method === "GET" && path === "/api/docs") {
+        sendText(res, 200, swaggerHtml(), "text/html; charset=utf-8");
+        return;
+      }
+
+      if (req.method === "GET" && path === "/api/openapi.json") {
+        json(res, 200, buildOpenApi({ serverUrl: requestOrigin(req) || "/" }));
+        return;
+      }
+
+      if (req.method === "GET" && path === "/api") {
+        json(res, 200, {
+          nombre: "Acopio Pereira API",
+          documentacion: "/api/docs",
+          openapi: "/api/openapi.json",
+          endpoints: {
+            consultar: "GET /api/consultar",
+            puntos: "GET /api/puntos",
+            punto: "GET /api/puntos/:id",
+            categorias: "GET /api/categorias",
+            crear_punto: "POST /api/puntos",
+            movimiento: "POST /api/puntos/:id/movimientos",
+            salud: "GET /api/salud",
+          },
+        });
+        return;
+      }
+
+      if (req.method === "GET" && path === "/api/categorias") {
+        json(res, 200, {
+          categorias: CATEGORIAS.map((slug) => ({
+            slug,
+            etiqueta: ETIQUETAS[slug],
+          })),
+        });
+        return;
+      }
+
+      if (req.method === "GET" && path === "/api/consultar") {
+        const parsed = validateConsulta(queryFrom(url));
+        if (!parsed.ok) {
+          json(res, parsed.status, { error: parsed.error });
+          return;
+        }
+        const rows = listFiltered(db, parsed.value);
+        json(res, 200, {
+          consulta: parsed.value,
+          total: rows.length,
+          puntos: rows.map((r) => publicPunto(r, r.inventario)),
+        });
+        return;
+      }
+
       if (req.method === "GET" && path === "/api/puntos") {
-        const rows = listPuntos(db);
+        const parsed = validateConsulta(queryFrom(url));
+        if (!parsed.ok) {
+          json(res, parsed.status, { error: parsed.error });
+          return;
+        }
+        const rows = listFiltered(db, parsed.value);
         json(res, 200, {
           puntos: rows.map((r) => publicPunto(r, r.inventario)),
         });

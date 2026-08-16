@@ -39,3 +39,22 @@ export function enCaja(lat, lng) {
     lng <= CAJA.lngMax
   );
 }
+
+function fold(s) {
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+export function categoriaDesdeTexto(raw) {
+  const q = fold(raw || "").trim();
+  if (!q) return null;
+  for (const slug of CATEGORIAS) {
+    if (q === slug || q === fold(ETIQUETAS[slug])) return slug;
+  }
+  if (q === "ninos" || q === "nino" || q === "pañales" || q === "panales") {
+    return "ninos";
+  }
+  return null;
+}

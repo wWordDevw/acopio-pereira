@@ -172,6 +172,11 @@ textarea {
   font-weight: 700;
 }
 
+.status a {
+  color: var(--brand);
+  font-weight: 700;
+}
+
 .map-page {
   display: flex;
   flex-direction: column;

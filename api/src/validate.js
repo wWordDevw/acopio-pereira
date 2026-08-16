@@ -1,4 +1,4 @@
-import { CATEGORIAS, enCaja } from "./categorias.js";
+import { CATEGORIAS, categoriaDesdeTexto, enCaja } from "./categorias.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -122,4 +122,76 @@ export function validatePuntoId(raw) {
   const id = trimOrNull(raw);
   if (!id || !UUID_RE.test(id)) return fail("no_encontrado", 404);
   return { ok: true, value: id };
+}
+
+function parseBool(raw) {
+  if (raw == null || raw === "") return false;
+  const s = String(raw).trim().toLowerCase();
+  return s === "1" || s === "true" || s === "si" || s === "sí" || s === "yes";
+}
+
+function parseLimit(raw, fallback) {
+  if (raw == null || raw === "") return { ok: true, value: fallback };
+  const n = Number(String(raw).trim());
+  if (!Number.isInteger(n) || n < 1 || n > 200) return fail("limit_invalido");
+  return { ok: true, value: n };
+}
+
+export function validateConsulta(params) {
+  const qRaw = trimOrNull(params?.q);
+  if (qRaw && qRaw.length > 80) return fail("q_invalida");
+  if (qRaw && hasForbiddenUrl(qRaw)) return fail("url_no_permitida");
+
+  let categoria = trimOrNull(params?.categoria);
+  if (categoria && !CATEGORIAS.includes(categoria)) {
+    return fail("categoria_invalida");
+  }
+
+  let q = qRaw;
+  if (!categoria && q) {
+    const inferred = categoriaDesdeTexto(q);
+    if (inferred) {
+      categoria = inferred;
+      q = null;
+    }
+  }
+
+  const con_stock = parseBool(params?.con_stock) || Boolean(categoria);
+
+  const hasLat = params?.lat != null && params.lat !== "";
+  const hasLng = params?.lng != null && params.lng !== "";
+  if (hasLat !== hasLng) return fail("coordenada_invalida");
+
+  let lat = null;
+  let lng = null;
+  let radio = 5;
+  if (hasLat && hasLng) {
+    const latP = parseCoord(params.lat, "coordenada_invalida");
+    if (!latP.ok) return latP;
+    const lngP = parseCoord(params.lng, "coordenada_invalida");
+    if (!lngP.ok) return lngP;
+    lat = latP.value;
+    lng = lngP.value;
+    if (params?.radio != null && params.radio !== "") {
+      const r = Number(String(params.radio).trim());
+      if (!Number.isFinite(r) || r < 0.1 || r > 50) return fail("radio_invalido");
+      radio = r;
+    }
+  }
+
+  const limit = parseLimit(params?.limit, 200);
+  if (!limit.ok) return limit;
+
+  return {
+    ok: true,
+    value: {
+      q,
+      categoria,
+      con_stock,
+      lat,
+      lng,
+      radio,
+      limit: limit.value,
+    },
+  };
 }
