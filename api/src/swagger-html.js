@@ -4,7 +4,7 @@ export function swaggerHtml() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Acopio Pereira API — Swagger</title>
+    <title>Insumos Pereira API — Swagger</title>
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
   </head>

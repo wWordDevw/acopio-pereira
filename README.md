@@ -1,6 +1,6 @@
-# Acopio Pereira
+# Insumos Pereira
 
-PWA para inventariar insumos de ayuda en puntos de acopio de Pereira. HTML nativo, mapa, GPS, botones + voz. API Node + SQLite.
+PWA para inventariar insumos de ayuda en Pereira. HTML nativo, mapa, GPS, botones + voz. API Node + SQLite.
 
 ## Local
 
@@ -42,7 +42,7 @@ GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits e
 
 ## Dokploy
 
-Un proyecto **Acopio Pereira**, dos Applications:
+Un proyecto **Insumos Pereira**, dos Applications:
 
 1. **web** — Static, build path `/public`, path `/`, puerto 80.
 2. **api** — Compose `docker-compose.prod.yml` (volumen `acopio_data` → `/data`). Mismo host, path `/api`, Strip Path off, puerto 3000, service `api`. Sin esto el SQLite se borra en cada deploy.

@@ -57,4 +57,30 @@ describe("parseVoz", () => {
     assert.equal(items[3].categoria, "agua");
     assert.equal(items[3].cantidad, 8);
   });
+
+  it("maps granos and panela to comida", () => {
+    const items = parseVoz("30 granos y 12 panelas");
+    assert.equal(items[0].categoria, "comida");
+    assert.equal(items[0].cantidad, 30);
+    assert.equal(items[1].categoria, "comida");
+    assert.equal(items[1].cantidad, 12);
+  });
+
+  it("maps carpas and colchonetas to cobijas", () => {
+    const items = parseVoz("8 carpas y 15 colchonetas");
+    assert.equal(items[0].categoria, "cobijas");
+    assert.equal(items[1].categoria, "cobijas");
+  });
+
+  it("maps insumos medicos and repelente", () => {
+    const items = parseVoz("5 insumos medicos y 4 repelentes");
+    assert.equal(items[0].categoria, "medicinas");
+    assert.equal(items[1].categoria, "higiene");
+  });
+
+  it("keeps pet food as mascotas not comida", () => {
+    const items = parseVoz("10 alimento para mascotas y 6 comida para perros");
+    assert.equal(items[0].categoria, "mascotas");
+    assert.equal(items[1].categoria, "mascotas");
+  });
 });

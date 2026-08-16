@@ -1,11 +1,11 @@
 export const CATEGORIAS = [
-  "agua",
   "comida",
   "medicinas",
-  "cobijas",
-  "ropa",
   "higiene",
   "ninos",
+  "cobijas",
+  "agua",
+  "ropa",
   "mascotas",
   "otro",
 ];

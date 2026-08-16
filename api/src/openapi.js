@@ -173,14 +173,14 @@ export function buildOpenApi({ serverUrl }) {
   return {
     openapi: "3.0.3",
     info: {
-      title: "Acopio Pereira API",
+      title: "Insumos Pereira API",
       version: "1.0.0",
       summary: "Inventario público de insumos de ayuda en Pereira (Colombia).",
       description: [
         "API HTTP JSON, **sin autenticación**.",
         "",
         "## Para qué sirve",
-        "Consultar **dónde hay insumos** (agua, comida, cobijas…) y **cuánto queda** en cada punto de acopio.",
+        "Consultar **dónde hay insumos** (comida, medicinas, higiene, niños…) y **cuánto queda** en cada punto.",
         "También se puede **crear un punto** y **registrar entradas/salidas** (bots, planillas, otras apps).",
         "",
         "## Base URL",
@@ -213,7 +213,7 @@ export function buildOpenApi({ serverUrl }) {
         "```",
       ].join("\n"),
       contact: {
-        name: "Acopio Pereira",
+        name: "Insumos Pereira",
         url: serverUrl || "/",
       },
       license: { name: "Uso humanitario — datos públicos" },
@@ -478,7 +478,7 @@ export function buildOpenApi({ serverUrl }) {
       "/api/puntos": {
         get: {
           tags: ["Consulta"],
-          summary: "Listar puntos de acopio",
+          summary: "Listar puntos de insumos",
           operationId: "listPuntos",
           description:
             "Lista usada por el mapa. Acepta los mismos filtros que `/api/consultar`, pero responde solo `{ puntos }` (sin envolver `consulta`/`total`).",
@@ -506,10 +506,10 @@ export function buildOpenApi({ serverUrl }) {
         },
         post: {
           tags: ["Escritura"],
-          summary: "Crear un punto de acopio",
+          summary: "Crear un punto de insumos",
           operationId: "crearPunto",
           description:
-            "Crea un centro de acopio. Las coordenadas deben caer en la caja de Pereira. Reenvío con la misma `idempotency_key` → 200 y el punto ya creado.",
+            "Crea un punto de insumos. Las coordenadas deben caer en la caja de Pereira. Reenvío con la misma `idempotency_key` → 200 y el punto ya creado.",
           requestBody: {
             required: true,
             content: {

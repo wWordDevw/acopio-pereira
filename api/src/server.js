@@ -196,7 +196,7 @@ export function createServer({ db, trustProxy = false }) {
 
       if (req.method === "GET" && path === "/api") {
         json(res, 200, {
-          nombre: "Acopio Pereira API",
+          nombre: "Insumos Pereira API",
           documentacion: "/api/docs",
           openapi: "/api/openapi.json",
           endpoints: {

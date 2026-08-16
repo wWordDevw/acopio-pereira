@@ -11,6 +11,7 @@ const KEYWORDS = {
     "litros",
     "hidrat",
     "bolsa de agua",
+    "agua potable",
   ],
   comida: [
     "comida",
@@ -40,6 +41,17 @@ const KEYWORDS = {
     "harina",
     "azucar",
     "sal",
+    "grano",
+    "granos",
+    "panela",
+    "panelas",
+    "no perecedero",
+    "no perecederos",
+    "garbanzo",
+    "garbanzos",
+    "chocolate",
+    "olla",
+    "ollas",
   ],
   medicinas: [
     "medicina",
@@ -60,6 +72,16 @@ const KEYWORDS = {
     "alcohol",
     "tapaboca",
     "tapabocas",
+    "insumo medico",
+    "insumos medicos",
+    "insumo hospitalario",
+    "hospitalario",
+    "inhalador",
+    "inhaladores",
+    "insulina",
+    "salbutamol",
+    "gasa",
+    "gasas",
   ],
   cobijas: [
     "cobija",
@@ -72,8 +94,12 @@ const KEYWORDS = {
     "sabanas",
     "colchon",
     "colchones",
+    "colchoneta",
+    "colchonetas",
     "almohada",
     "almohadas",
+    "carpa",
+    "carpas",
   ],
   ropa: [
     "ropa",
@@ -88,6 +114,7 @@ const KEYWORDS = {
     "chompas",
     "chaqueta",
     "chaquetas",
+    "interior",
   ],
   higiene: [
     "higiene",
@@ -106,6 +133,15 @@ const KEYWORDS = {
     "pasta dental",
     "crema dental",
     "gel",
+    "repelente",
+    "repelentes",
+    "ducha",
+    "duchas",
+    "lavamanos",
+    "desodorante",
+    "desodorantes",
+    "bolsa de basura",
+    "bolsas de basura",
   ],
   ninos: [
     "nino",
@@ -116,6 +152,12 @@ const KEYWORDS = {
     "bebes",
     "formula",
     "leche",
+    "compota",
+    "compotas",
+    "tetero",
+    "teteros",
+    "cosas para bebe",
+    "cosas de bebe",
   ],
   mascotas: [
     "mascota",
@@ -126,6 +168,19 @@ const KEYWORDS = {
     "gatos",
     "croqueta",
     "croquetas",
+    "cuido",
+    "alimento para mascota",
+    "alimento para mascotas",
+    "comida para perro",
+    "comida para perros",
+    "comida para gato",
+    "comida para gatos",
+    "para mascota",
+    "para mascotas",
+    "para perro",
+    "para perros",
+    "para gato",
+    "para gatos",
   ],
 };
 
@@ -235,13 +290,19 @@ function numberAt(tokens, i) {
 
 export function parseCategoria(chunk) {
   const f = fold(chunk);
+  let best = "otro";
+  let bestLen = 0;
   for (const cat of CATEGORIAS) {
     if (cat === "otro") continue;
     for (const word of KEYWORDS[cat]) {
-      if (f.includes(fold(word))) return cat;
+      const w = fold(word);
+      if (w.length > bestLen && f.includes(w)) {
+        best = cat;
+        bestLen = w.length;
+      }
     }
   }
-  return "otro";
+  return best;
 }
 
 function publicItem(item, raw) {

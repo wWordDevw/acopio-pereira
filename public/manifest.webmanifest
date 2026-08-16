@@ -1,6 +1,6 @@
 {
-  "name": "Acopio Pereira",
-  "short_name": "Acopio",
+  "name": "Insumos Pereira",
+  "short_name": "Insumos",
   "description": "Inventario de insumos de ayuda en Pereira",
   "start_url": "/?source=pwa",
   "scope": "/",
