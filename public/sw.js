@@ -1,4 +1,4 @@
-const CACHE = "acopio-v4";
+const CACHE = "acopio-v5";
 const SHELL = [
   "/",
   "/index.html",

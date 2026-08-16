@@ -216,14 +216,23 @@ textarea {
   background: #e4d6c4;
 }
 
+.pin-wrap.leaflet-div-icon,
+.yo-wrap.leaflet-div-icon {
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
 .pin {
-  width: 1.35rem;
-  height: 1.35rem;
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: 2px auto 0;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  border: 2px solid var(--ink);
+  border: 3px solid #fff;
   background: var(--pin-empty);
-  box-shadow: 0 1px 0 #0003;
+  box-shadow: 0 2px 6px #0005;
 }
 
 .pin.is-full {
@@ -233,6 +242,30 @@ textarea {
 .pin-wrap {
   background: transparent;
   border: 0;
+}
+
+.leaflet-tooltip.pin-label {
+  padding: 0.15rem 0.4rem;
+  border: 2px solid var(--line);
+  border-radius: 0.3rem;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.78rem;
+  box-shadow: 0 1px 4px #0003;
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.pin-label.leaflet-tooltip-top::before {
+  border-top-color: var(--line);
+}
+
+.pin-popup {
+  min-width: 10rem;
+}
+
+.pin-popup p {
+  margin: 0.3rem 0 0.5rem;
 }
 
 .yo-wrap {

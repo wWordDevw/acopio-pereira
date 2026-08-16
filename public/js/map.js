@@ -3,11 +3,12 @@ import { PEREIRA, stockResumen, errorText } from "./categorias.js";
 
 function pinIcon(lleno) {
   return L.divIcon({
-    className: "pin-wrap",
+    className: `pin-wrap${lleno ? " is-full" : ""}`,
     html: `<span class="pin${lleno ? " is-full" : ""}"></span>`,
-    iconSize: [22, 22],
-    iconAnchor: [6, 20],
-    popupAnchor: [5, -18],
+    iconSize: [36, 48],
+    iconAnchor: [18, 46],
+    popupAnchor: [0, -40],
+    tooltipAnchor: [0, -42],
   });
 }
 
@@ -26,13 +27,32 @@ const GEO_OPTS = {
   maximumAge: 8000,
 };
 
+function fitVista(map, layers) {
+  const pts = (layers.puntos || []).map((p) => [p.lat, p.lng]);
+  if (layers.last) {
+    pts.push([layers.last.coords.latitude, layers.last.coords.longitude]);
+  }
+  if (pts.length === 0) return;
+  if (pts.length === 1) {
+    map.setView(pts[0], 15);
+    return;
+  }
+  map.fitBounds(pts, { padding: [56, 56], maxZoom: 15 });
+}
+
 function paintMe(map, layers, pos, { center, openPopup }) {
   const latlng = [pos.coords.latitude, pos.coords.longitude];
   const acc = Number.isFinite(pos.coords.accuracy)
-    ? Math.max(20, pos.coords.accuracy)
+    ? Math.max(20, Math.min(pos.coords.accuracy, 80))
     : 40;
   layers.last = pos;
-  if (center) map.setView(latlng, 16);
+  if (center) {
+    if (!openPopup && layers.puntos && layers.puntos.length > 0) {
+      fitVista(map, layers);
+    } else {
+      map.setView(latlng, 16);
+    }
+  }
   if (layers.marker) {
     layers.marker.setLatLng(latlng);
   } else {
@@ -83,8 +103,12 @@ function startWatch(map, layers, status, { recenter } = {}) {
   layers.watchId = navigator.geolocation.watchPosition(
     (pos) => {
       const first = !layers.marker;
+      const fromButton = layers.wantCenter && !first;
       const center = first || layers.wantCenter;
-      paintMe(map, layers, pos, { center, openPopup: center });
+      paintMe(map, layers, pos, {
+        center,
+        openPopup: fromButton,
+      });
       layers.wantCenter = false;
       if (status) {
         status.classList.remove("is-error");
@@ -151,6 +175,7 @@ async function main() {
     watchId: null,
     last: null,
     wantCenter: true,
+    puntos: [],
   };
   startWatch(map, me, status, { recenter: true });
   followPermission(map, me, status);
@@ -161,6 +186,7 @@ async function main() {
   try {
     const data = await listPuntos();
     const puntos = data.puntos || [];
+    me.puntos = puntos;
     if (puntos.length === 0 && status && !me.marker) {
       status.textContent = "Aún no hay puntos. Crea el primero.";
     }
@@ -168,9 +194,11 @@ async function main() {
       const marker = L.marker([p.lat, p.lng], {
         icon: pinIcon(p.tiene_stock),
         title: p.nombre,
+        zIndexOffset: 400,
       }).addTo(map);
       const href = `/punto.html?id=${encodeURIComponent(p.id)}`;
       const popup = document.createElement("div");
+      popup.className = "pin-popup";
       const name = document.createElement("strong");
       name.textContent = p.nombre;
       const line = document.createElement("p");
@@ -180,10 +208,15 @@ async function main() {
       link.textContent = "Abrir punto";
       popup.append(name, line, link);
       marker.bindPopup(popup);
-      marker.on("click", () => {
-        /* popup handles navigation */
+      marker.bindTooltip(p.nombre, {
+        permanent: true,
+        direction: "top",
+        offset: [0, -6],
+        className: "pin-label",
+        opacity: 1,
       });
     }
+    fitVista(map, me);
   } catch (err) {
     if (status) {
       status.textContent = errorText(err);
