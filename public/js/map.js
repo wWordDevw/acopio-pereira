@@ -20,7 +20,46 @@ function yoIcon() {
   });
 }
 
-function locate(map, layers, status) {
+const GEO_OPTS = {
+  enableHighAccuracy: true,
+  timeout: 15000,
+  maximumAge: 8000,
+};
+
+function paintMe(map, layers, pos, { center, openPopup }) {
+  const latlng = [pos.coords.latitude, pos.coords.longitude];
+  const acc = Number.isFinite(pos.coords.accuracy)
+    ? Math.max(20, pos.coords.accuracy)
+    : 40;
+  layers.last = pos;
+  if (center) map.setView(latlng, 16);
+  if (layers.marker) {
+    layers.marker.setLatLng(latlng);
+  } else {
+    layers.marker = L.marker(latlng, {
+      icon: yoIcon(),
+      zIndexOffset: 800,
+      keyboard: false,
+      title: "Estás aquí",
+    }).addTo(map);
+    layers.marker.bindPopup("Estás aquí");
+  }
+  if (layers.circle) {
+    layers.circle.setLatLng(latlng);
+    layers.circle.setRadius(acc);
+  } else {
+    layers.circle = L.circle(latlng, {
+      radius: acc,
+      className: "yo-accuracy",
+      interactive: false,
+      stroke: true,
+      fill: true,
+    }).addTo(map);
+  }
+  if (openPopup) layers.marker.openPopup();
+}
+
+function startWatch(map, layers, status, { recenter } = {}) {
   if (!navigator.geolocation) {
     if (status) {
       status.textContent = "Este celular no da GPS.";
@@ -28,57 +67,68 @@ function locate(map, layers, status) {
     }
     return;
   }
-  if (status) {
+
+  layers.wantCenter = Boolean(recenter) || layers.wantCenter;
+  if (recenter && layers.last) {
+    paintMe(map, layers, layers.last, { center: true, openPopup: true });
+  }
+
+  if (layers.watchId != null) return;
+
+  if (status && !layers.marker) {
     status.textContent = "Buscando tu ubicación…";
     status.classList.remove("is-error");
   }
-  navigator.geolocation.getCurrentPosition(
+
+  layers.watchId = navigator.geolocation.watchPosition(
     (pos) => {
-      const latlng = [pos.coords.latitude, pos.coords.longitude];
-      const acc = Number.isFinite(pos.coords.accuracy)
-        ? Math.max(20, pos.coords.accuracy)
-        : 40;
-      map.setView(latlng, 16);
-      if (layers.marker) {
-        layers.marker.setLatLng(latlng);
-      } else {
-        layers.marker = L.marker(latlng, {
-          icon: yoIcon(),
-          zIndexOffset: 800,
-          keyboard: false,
-          title: "Estás aquí",
-        }).addTo(map);
-        layers.marker.bindPopup("Estás aquí");
-      }
-      if (layers.circle) {
-        layers.circle.setLatLng(latlng);
-        layers.circle.setRadius(acc);
-      } else {
-        layers.circle = L.circle(latlng, {
-          radius: acc,
-          className: "yo-accuracy",
-          interactive: false,
-          stroke: true,
-          fill: true,
-        }).addTo(map);
-      }
-      layers.marker.openPopup();
+      const first = !layers.marker;
+      const center = first || layers.wantCenter;
+      paintMe(map, layers, pos, { center, openPopup: center });
+      layers.wantCenter = false;
       if (status) {
+        status.classList.remove("is-error");
         status.textContent = "Estás aquí. Pin naranja = hay insumos.";
       }
     },
     (err) => {
       if (!status) return;
+      if (layers.marker) return;
       status.classList.add("is-error");
       if (err && err.code === 1) {
         status.textContent =
-          "Activa el permiso de ubicación en el navegador y vuelve a tocar Mi ubicación.";
+          "Permite la ubicación cuando el navegador la pida para verte en el mapa.";
         return;
       }
-      status.textContent = "No se pudo leer el GPS. Intenta de nuevo.";
+      status.textContent = "No se pudo leer el GPS. Toca Mi ubicación.";
     },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 },
+    GEO_OPTS,
   );
+}
+
+function followPermission(map, layers, status) {
+  if (!navigator.permissions || !navigator.permissions.query) return;
+  navigator.permissions
+    .query({ name: "geolocation" })
+    .then((perm) => {
+      const onChange = () => {
+        if (perm.state === "granted") {
+          if (layers.watchId != null && navigator.geolocation.clearWatch) {
+            navigator.geolocation.clearWatch(layers.watchId);
+            layers.watchId = null;
+          }
+          startWatch(map, layers, status, { recenter: true });
+        }
+        if (perm.state === "prompt") {
+          startWatch(map, layers, status, { recenter: true });
+        }
+      };
+      perm.addEventListener("change", onChange);
+      if (perm.state === "granted") {
+        startWatch(map, layers, status, { recenter: true });
+      }
+    })
+    .catch(() => {});
 }
 
 async function main() {
@@ -95,15 +145,23 @@ async function main() {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
 
-  const me = { marker: null, circle: null };
+  const me = {
+    marker: null,
+    circle: null,
+    watchId: null,
+    last: null,
+    wantCenter: true,
+  };
+  startWatch(map, me, status, { recenter: true });
+  followPermission(map, me, status);
   document.getElementById("btn-ubicacion")?.addEventListener("click", () => {
-    locate(map, me, status);
+    startWatch(map, me, status, { recenter: true });
   });
 
   try {
     const data = await listPuntos();
     const puntos = data.puntos || [];
-    if (puntos.length === 0 && status) {
+    if (puntos.length === 0 && status && !me.marker) {
       status.textContent = "Aún no hay puntos. Crea el primero.";
     }
     for (const p of puntos) {
