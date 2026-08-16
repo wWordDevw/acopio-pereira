@@ -1,11 +1,11 @@
-import { getPunto, postMovimiento } from "./api.js";
+import { getPunto, postMovimiento, interpretarVoz } from "./api.js";
 import {
   CATEGORIAS,
   newKey,
   formatWhen,
   errorText,
 } from "./categorias.js";
-import { canSpeak, listenOnce } from "./voz.js";
+import { canSpeak, createDictado } from "./voz.js";
 
 function qs(id) {
   return document.getElementById(id);
@@ -85,10 +85,62 @@ async function send(id, payload, status) {
       : "";
     status.textContent = `Listo.${extra}`;
     status.classList.add("is-ok");
+    return data;
   } catch (err) {
     status.textContent = errorText(err);
     status.classList.add("is-error");
+    return null;
   }
+}
+
+function renderRevision(items, onChange) {
+  const list = qs("revision-lista");
+  list.replaceChildren();
+  items.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.className = "revision-item";
+
+    const qty = document.createElement("input");
+    qty.type = "number";
+    qty.min = "1";
+    qty.max = "999";
+    qty.value = String(item.cantidad);
+    qty.setAttribute("aria-label", "Cantidad");
+    qty.addEventListener("input", () => {
+      const n = Number(qty.value);
+      items[index].cantidad = Number.isInteger(n) ? n : items[index].cantidad;
+    });
+
+    const sel = document.createElement("select");
+    sel.setAttribute("aria-label", "Categoría");
+    for (const [slug, label] of CATEGORIAS) {
+      const opt = document.createElement("option");
+      opt.value = slug;
+      opt.textContent = label;
+      if (slug === item.categoria) opt.selected = true;
+      sel.append(opt);
+    }
+    sel.addEventListener("change", () => {
+      items[index].categoria = sel.value;
+    });
+
+    const quitar = document.createElement("button");
+    quitar.type = "button";
+    quitar.className = "btn btn-quitar";
+    quitar.textContent = "Quitar";
+    quitar.addEventListener("click", () => {
+      items.splice(index, 1);
+      onChange();
+    });
+
+    const frase = document.createElement("p");
+    frase.className = "revision-frase";
+    frase.textContent = item.frase || "";
+
+    li.append(qty, sel, quitar);
+    if (item.frase) li.append(frase);
+    list.append(li);
+  });
 }
 
 async function main() {
@@ -131,31 +183,131 @@ async function main() {
     cats.append(plus1, plus5);
   }
 
+  const draft = { items: [], textos: [] };
+  const revision = qs("revision");
+  const dictado = qs("dictado");
   const mic = qs("mic");
+  let listener = null;
+
+  function showRevision() {
+    revision.hidden = draft.items.length === 0;
+    qs("revision-texto").textContent = draft.textos.join(" · ");
+    renderRevision(draft.items, showRevision);
+  }
+
+  async function organizar(texto, append) {
+    const clean = String(texto || "").trim();
+    if (!clean) {
+      status.textContent = "No hay texto para organizar.";
+      status.classList.add("is-error");
+      return;
+    }
+    status.textContent = "Organizando…";
+    status.classList.remove("is-error", "is-ok");
+    try {
+      const data = await interpretarVoz(clean);
+      if (!append) {
+        draft.items = [];
+        draft.textos = [];
+      }
+      draft.textos.push(data.texto);
+      draft.items.push(...data.items);
+      dictado.value = draft.textos.join(" ");
+      showRevision();
+      status.textContent = `${draft.items.length} insumo(s). Revisa cantidad y categoría, luego confirma.`;
+      status.classList.add("is-ok");
+    } catch (err) {
+      status.textContent = errorText(err);
+      status.classList.add("is-error");
+    }
+  }
+
+  function stopMic() {
+    if (listener) {
+      listener.stop();
+      listener = null;
+    }
+    mic.classList.remove("is-listening");
+    mic.textContent = "Dictar insumos";
+  }
+
+  qs("btn-organizar").addEventListener("click", () => {
+    organizar(dictado.value, false);
+  });
+
+  qs("revision-cancelar").addEventListener("click", () => {
+    draft.items = [];
+    draft.textos = [];
+    revision.hidden = true;
+    status.textContent = "";
+  });
+
+  qs("revision-mas").addEventListener("click", () => {
+    dictado.focus();
+    status.textContent = "Dicta o escribe más y organízalos.";
+  });
+
+  qs("revision-guardar").addEventListener("click", async () => {
+    const items = draft.items
+      .map((it) => ({
+        categoria: it.categoria,
+        cantidad: it.cantidad,
+        frase: it.frase,
+      }))
+      .filter((it) => it.cantidad >= 1 && it.cantidad <= 999);
+    if (items.length === 0) {
+      status.textContent = "No queda nada para guardar.";
+      status.classList.add("is-error");
+      return;
+    }
+    const saved = await send(id, { tipo, items }, status);
+    if (saved) {
+      draft.items = [];
+      draft.textos = [];
+      revision.hidden = true;
+      dictado.value = "";
+    }
+  });
+
   if (!canSpeak()) {
-    mic.hidden = true;
     qs("mic-hint").textContent =
-      "Este navegador no dicta. Usa los botones.";
+      "Este navegador no dicta. Escribe la lista y toca Organizar.";
   } else {
-    mic.addEventListener("click", async () => {
+    qs("mic-hint").textContent =
+      "Habla varios productos. Al terminar, toca de nuevo para organizarlos.";
+    mic.addEventListener("click", () => {
+      if (listener) {
+        listener.stop();
+        return;
+      }
       mic.classList.add("is-listening");
-      mic.textContent = "Escuchando…";
-      status.textContent = "Habla ahora.";
+      mic.textContent = "Escuchando… toca para terminar";
+      status.textContent = "Habla ahora: cantidades y productos.";
+      status.classList.remove("is-error", "is-ok");
+      listener = createDictado({
+        onPartial: (text) => {
+          dictado.value = text;
+        },
+        onReady: (text) => {
+          listener = null;
+          stopMic();
+          organizar(text, draft.items.length > 0);
+        },
+        onError: () => {
+          listener = null;
+          stopMic();
+          status.textContent =
+            "No se pudo dictar. Escribe la lista o revisa el micrófono.";
+          status.classList.add("is-error");
+        },
+      });
       try {
-        const texto = await listenOnce();
-        if (!texto) {
-          status.textContent = "No se oyó nada.";
-          return;
-        }
-        status.textContent = `Oí: ${texto}`;
-        await send(id, { tipo, texto }, status);
+        listener.start();
       } catch {
-        status.textContent =
-          "No se pudo dictar. Revisa el micrófono o usa los botones.";
+        listener = null;
+        stopMic();
+        status.textContent = "No se pudo encender el micrófono.";
         status.classList.add("is-error");
-      } finally {
-        mic.classList.remove("is-listening");
-        mic.textContent = "Decir el producto";
       }
     });
   }

@@ -185,6 +185,33 @@ describe("server", () => {
     assert.ok(data.puntos.every((p) => p.inventario.some((i) => i.categoria === "agua")));
   });
 
+  it("interprets voice without saving and accepts edited items", async () => {
+    const created = await post("/api/puntos", {
+      nombre: "Voz",
+      lat: 4.814,
+      lng: -75.693,
+      idempotency_key: KEY(14),
+    });
+    const parsed = await post("/api/interpretar", {
+      texto: "20 cobijas y 10 aguas",
+    });
+    assert.equal(parsed.status, 200);
+    assert.equal(parsed.body.items.length, 2);
+    const saved = await post(`/api/puntos/${created.body.id}/movimientos`, {
+      tipo: "entra",
+      items: [
+        { categoria: "cobijas", cantidad: 18, frase: "cobijas" },
+        { categoria: "agua", cantidad: 10, frase: "aguas" },
+      ],
+      idempotency_key: KEY(15),
+    });
+    assert.equal(saved.status, 201);
+    assert.equal(
+      saved.body.inventario.find((i) => i.categoria === "cobijas").stock,
+      18,
+    );
+  });
+
   it("serves OpenAPI and Swagger UI", async () => {
     const specRes = await fetch(`${base}/api/openapi.json`);
     assert.equal(specRes.status, 200);

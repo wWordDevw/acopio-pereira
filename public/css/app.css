@@ -420,3 +420,68 @@ path.yo-accuracy {
 .leaflet-control-attribution {
   font-size: 0.65rem;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#dictado {
+  margin: 0.7rem 0 0.55rem;
+}
+
+.revision {
+  margin: 1rem 0;
+  padding: 0.85rem 0 0;
+  border-top: 2px solid var(--line);
+}
+
+.revision-lista {
+  list-style: none;
+  margin: 0 0 0.85rem;
+  padding: 0;
+}
+
+.revision-item {
+  display: grid;
+  grid-template-columns: 4.4rem 1fr auto;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0 0 0.5rem;
+  padding: 0.55rem;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.revision-item input,
+.revision-item select {
+  width: 100%;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.45rem;
+  border: 2px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.revision-frase {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.revision-item .btn-quitar {
+  width: auto;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.9rem;
+}

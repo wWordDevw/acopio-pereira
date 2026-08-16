@@ -85,14 +85,47 @@ export function validateMovimiento(body) {
   const key = parseIdempotencyKey(body?.idempotency_key);
   if (!key.ok) return key;
 
+  if (Array.isArray(body?.items)) {
+    if (body.items.length < 1 || body.items.length > 30) {
+      return fail("items_invalidos");
+    }
+    const items = [];
+    for (const raw of body.items) {
+      const categoria = trimOrNull(raw?.categoria);
+      if (!categoria || !CATEGORIAS.includes(categoria)) {
+        return fail("categoria_invalida");
+      }
+      const cantidad = parseCantidad(raw?.cantidad);
+      if (!cantidad.ok) return cantidad;
+      const frase = trimOrNull(raw?.frase);
+      items.push({
+        categoria,
+        cantidad: cantidad.value,
+        texto_original: frase && frase.length <= 80 ? frase : null,
+      });
+    }
+    return {
+      ok: true,
+      value: {
+        tipo,
+        texto: null,
+        items,
+        categoria: null,
+        cantidad: null,
+        idempotency_key: key.value,
+      },
+    };
+  }
+
   const texto = trimOrNull(body?.texto);
   if (texto) {
-    if (texto.length > 280) return fail("texto_invalido");
+    if (texto.length > 500) return fail("texto_invalido");
     return {
       ok: true,
       value: {
         tipo,
         texto,
+        items: null,
         categoria: null,
         cantidad: null,
         idempotency_key: key.value,
@@ -111,11 +144,18 @@ export function validateMovimiento(body) {
     value: {
       tipo,
       texto: null,
+      items: null,
       categoria,
       cantidad: cantidad.value,
       idempotency_key: key.value,
     },
   };
+}
+
+export function validateInterpretar(body) {
+  const texto = trimOrNull(body?.texto);
+  if (!texto || texto.length > 500) return fail("texto_invalido");
+  return { ok: true, value: { texto } };
 }
 
 export function validatePuntoId(raw) {

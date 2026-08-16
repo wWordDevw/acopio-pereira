@@ -35,4 +35,26 @@ describe("parseVoz", () => {
   it("returns empty for blank", () => {
     assert.deepEqual(parseVoz("  "), []);
   });
+
+  it("keeps treinta y cinco as 35", () => {
+    const items = parseVoz("treinta y cinco cobijas");
+    assert.equal(items.length, 1);
+    assert.equal(items[0].cantidad, 35);
+    assert.equal(items[0].categoria, "cobijas");
+  });
+
+  it("splits a long spoken list", () => {
+    const items = parseVoz(
+      "20 cobijas 15 pañales 10 kits de aseo y 8 aguas",
+    );
+    assert.equal(items.length, 4);
+    assert.equal(items[0].categoria, "cobijas");
+    assert.equal(items[0].cantidad, 20);
+    assert.equal(items[1].categoria, "ninos");
+    assert.equal(items[1].cantidad, 15);
+    assert.equal(items[2].categoria, "higiene");
+    assert.equal(items[2].cantidad, 10);
+    assert.equal(items[3].categoria, "agua");
+    assert.equal(items[3].cantidad, 8);
+  });
 });

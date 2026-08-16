@@ -30,6 +30,14 @@ export function createPunto(body) {
   }).then(parse);
 }
 
+export function interpretarVoz(texto) {
+  return fetch("/api/interpretar", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ texto }),
+  }).then(parse);
+}
+
 export function postMovimiento(id, body) {
   return fetch(`/api/puntos/${encodeURIComponent(id)}/movimientos`, {
     method: "POST",

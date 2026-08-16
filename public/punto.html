@@ -22,12 +22,40 @@
         <button type="button" class="btn is-on" id="btn-entra">Entra</button>
         <button type="button" class="btn" id="btn-sale">Sale</button>
       </div>
-      <p class="hint">Un toque suma o resta 1. +5 al lado. O dicta.</p>
+      <p class="hint">
+        Un toque suma o resta 1. +5 al lado. O dicta varios de una vez:
+        “20 cobijas, 15 pañales y 10 kits de aseo”.
+      </p>
       <div id="cats" class="cats"></div>
       <button type="button" class="btn btn-primary btn-mic" id="mic">
-        Decir el producto
+        Dictar insumos
       </button>
       <p id="mic-hint" class="hint"></p>
+      <label class="sr-only" for="dictado">Texto del dictado</label>
+      <textarea
+        id="dictado"
+        maxlength="500"
+        placeholder="O escribe aquí: 20 cobijas, 10 aguas, 5 arroces…"
+      ></textarea>
+      <button type="button" class="btn" id="btn-organizar">
+        Organizar este texto
+      </button>
+      <section id="revision" class="revision" hidden>
+        <h2>Revisa y edita</h2>
+        <p id="revision-texto" class="meta"></p>
+        <ul id="revision-lista" class="revision-lista"></ul>
+        <div class="stack">
+          <button type="button" class="btn btn-primary" id="revision-guardar">
+            Confirmar e ingresar
+          </button>
+          <button type="button" class="btn" id="revision-mas">
+            Dictar más
+          </button>
+          <button type="button" class="btn btn-ghost" id="revision-cancelar">
+            Cancelar
+          </button>
+        </div>
+      </section>
       <p id="status" class="status"></p>
       <h2>Últimos movimientos</h2>
       <ul id="movs" class="mov"></ul>

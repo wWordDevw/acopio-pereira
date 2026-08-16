@@ -18,6 +18,7 @@ import {
   validateMovimiento,
   validatePuntoId,
   validateConsulta,
+  validateInterpretar,
 } from "./validate.js";
 import { parseVoz } from "./parse-voz.js";
 import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
@@ -200,6 +201,7 @@ export function createServer({ db, trustProxy = false }) {
           openapi: "/api/openapi.json",
           endpoints: {
             consultar: "GET /api/consultar",
+            interpretar: "POST /api/interpretar",
             puntos: "GET /api/puntos",
             punto: "GET /api/puntos/:id",
             categorias: "GET /api/categorias",
@@ -272,6 +274,22 @@ export function createServer({ db, trustProxy = false }) {
         return;
       }
 
+      if (req.method === "POST" && path === "/api/interpretar") {
+        const body = await readBody(req);
+        const parsed = validateInterpretar(body);
+        if (!parsed.ok) {
+          json(res, parsed.status, { error: parsed.error });
+          return;
+        }
+        const items = parseVoz(parsed.value.texto);
+        if (items.length === 0) {
+          json(res, 400, { error: "texto_invalido" });
+          return;
+        }
+        json(res, 200, { texto: parsed.value.texto, items });
+        return;
+      }
+
       if (req.method === "POST" && path === "/api/puntos") {
         const rate = hitRateLimit(
           db,
@@ -331,7 +349,14 @@ export function createServer({ db, trustProxy = false }) {
         }
 
         let items;
-        if (parsed.value.texto) {
+        if (parsed.value.items) {
+          items = parsed.value.items.map((it) => ({
+            tipo: parsed.value.tipo,
+            categoria: it.categoria,
+            cantidad: it.cantidad,
+            texto_original: it.texto_original,
+          }));
+        } else if (parsed.value.texto) {
           const parsedItems = parseVoz(parsed.value.texto);
           if (parsedItems.length === 0) {
             json(res, 400, { error: "texto_invalido" });

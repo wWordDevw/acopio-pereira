@@ -349,6 +349,63 @@ export function buildOpenApi({ serverUrl }) {
           },
         },
       },
+      "/api/interpretar": {
+        post: {
+          tags: ["Escritura"],
+          summary: "Interpretar un dictado sin guardar",
+          operationId: "interpretarVoz",
+          description:
+            "Parte cantidades y productos, asigna categoría y devuelve filas para que el usuario las revise y edite. No escribe inventario. Luego confirma con `POST /api/puntos/{id}/movimientos` y `items`.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["texto"],
+                  properties: {
+                    texto: { type: "string", maxLength: 500 },
+                  },
+                },
+                example: {
+                  texto: "20 cobijas, 15 pañales y 10 kits de aseo",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Ítems organizados.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      texto: { type: "string" },
+                      items: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            categoria: { type: "string", enum: categoriaEnum },
+                            etiqueta: { type: "string" },
+                            cantidad: { type: "integer" },
+                            frase: { type: "string" },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description: "`texto_invalido`.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+          },
+        },
+      },
       "/api/consultar": {
         get: {
           tags: ["Consulta"],
