@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#b34116" />
+    <title>Crear punto — Acopio Pereira</title>
+    <link rel="stylesheet" href="/css/leaflet.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <main class="wrap">
+      <a class="nav-back" href="/">← Mapa</a>
+      <p class="brand">Acopio Pereira</p>
+      <h1>Nuevo punto de acopio</h1>
+      <p class="lede">
+        Usamos el GPS preciso. Si no deja, toca el mapa o arrastra el pin.
+      </p>
+      <div id="mini-map" class="mini-map" role="application" aria-label="Elegir ubicación"></div>
+      <p id="status" class="status">Buscando ubicación…</p>
+      <button type="button" class="btn" id="btn-gps">Usar mi ubicación</button>
+      <form id="form">
+        <div class="field">
+          <label for="nombre">Nombre del lugar</label>
+          <input
+            id="nombre"
+            name="nombre"
+            type="text"
+            required
+            minlength="2"
+            maxlength="80"
+            autocomplete="off"
+            placeholder="Iglesia de Cuba, Cancha El Jardín…"
+          />
+        </div>
+        <div class="field">
+          <label for="nota">Nota (opcional)</label>
+          <textarea
+            id="nota"
+            name="nota"
+            maxlength="200"
+            placeholder="Entran por el costado sur"
+          ></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Crear punto</button>
+      </form>
+    </main>
+    <script src="/js/leaflet.js"></script>
+    <script type="module" src="/js/crear.js"></script>
+  </body>
+</html>

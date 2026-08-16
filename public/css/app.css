@@ -1,0 +1,340 @@
+:root {
+  --ink: #1c1410;
+  --paper: #f6efe4;
+  --card: #fffaf3;
+  --line: #1c1410;
+  --brand: #b34116;
+  --brand-ink: #fff7ee;
+  --muted: #6a574c;
+  --ok: #1f6b45;
+  --sale: #8a2210;
+  --focus: #b34116;
+  --pin: #b34116;
+  --pin-empty: #8a6a4a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.wrap {
+  width: min(42rem, calc(100% - 1.25rem));
+  margin: 0 auto;
+  padding: 1rem 0 5.5rem;
+}
+
+.brand {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 0.3rem;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+h1 {
+  font-size: clamp(1.55rem, 5.6vw, 2.15rem);
+  line-height: 1.12;
+  margin: 0 0 0.6rem;
+}
+
+.lede {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.row > * {
+  flex: 1;
+}
+
+a.btn,
+button.btn,
+.btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  font: inherit;
+  font-size: 1.08rem;
+  font-weight: 700;
+  padding: 0.95rem 0.85rem;
+  border: 2px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.btn:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: var(--brand-ink);
+  border-color: #7a260c;
+}
+
+.btn-sale {
+  background: var(--sale);
+  color: #fff8f5;
+  border-color: #5a1408;
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-mic {
+  font-size: 1.2rem;
+}
+
+.btn-mic.is-listening {
+  background: var(--sale);
+  color: #fff8f5;
+}
+
+label {
+  display: block;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 1.05rem;
+  padding: 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--card);
+  color: var(--ink);
+}
+
+textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.field {
+  margin: 0 0 0.9rem;
+}
+
+.hint,
+.status,
+.meta {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.status.is-error {
+  color: var(--sale);
+  font-weight: 700;
+}
+
+.status.is-ok {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.map-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.map-top {
+  padding: 0.7rem 0.8rem 0.55rem;
+  background: var(--paper);
+  border-bottom: 2px solid var(--line);
+}
+
+.map-top h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.map-canvas {
+  flex: 1;
+  min-height: 16rem;
+}
+
+.map-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-top: 2px solid var(--line);
+}
+
+.map-actions .btn {
+  margin: 0;
+}
+
+.leaflet-container {
+  font: inherit;
+  background: #e4d6c4;
+}
+
+.pin {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid var(--ink);
+  background: var(--pin-empty);
+  box-shadow: 0 1px 0 #0003;
+}
+
+.pin.is-full {
+  background: var(--brand);
+}
+
+.pin-wrap {
+  background: transparent;
+  border: 0;
+}
+
+.toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+}
+
+.toggle .btn.is-on {
+  background: var(--ok);
+  color: #f3fff6;
+  border-color: #0d3d24;
+}
+
+.toggle.is-sale .btn.is-on {
+  background: var(--sale);
+  color: #fff8f5;
+  border-color: #5a1408;
+}
+
+.cats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+}
+
+.cats .btn-cat {
+  width: auto;
+}
+
+.cats .btn-plus {
+  width: 3.4rem;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.stock {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.stock li,
+.mov li,
+.card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  margin: 0 0 0.45rem;
+}
+
+.stock-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.mov {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mov .qty-entra {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.mov .qty-sale {
+  color: var(--sale);
+  font-weight: 700;
+}
+
+.nav-back {
+  display: inline-block;
+  margin: 0 0 0.55rem;
+  font-weight: 700;
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.search {
+  width: 100%;
+  margin: 0 0 0.75rem;
+}
+
+.empty {
+  padding: 1rem 0;
+  color: var(--muted);
+}
+
+.coords {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.mini-map {
+  height: 14rem;
+  border: 2px solid var(--line);
+  border-radius: 0.5rem;
+  margin: 0 0 0.9rem;
+  overflow: hidden;
+}
+
+.leaflet-control-attribution {
+  font-size: 0.65rem;
+}

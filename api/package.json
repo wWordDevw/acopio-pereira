@@ -1,0 +1,15 @@
+{
+  "name": "acopio-pereira-api",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1"
+  }
+}

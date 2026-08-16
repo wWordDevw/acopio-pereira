@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#b34116" />
+    <title>Acopio Pereira — dónde hay insumos</title>
+    <link rel="stylesheet" href="/css/leaflet.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  </head>
+  <body class="map-page">
+    <header class="map-top">
+      <p class="brand">Acopio Pereira</p>
+      <h1>Dónde hay insumos</h1>
+      <p id="status" class="status">Puntos de acopio en Pereira. Pin naranja = hay stock.</p>
+    </header>
+    <div id="map" class="map-canvas" role="application" aria-label="Mapa de puntos"></div>
+    <div class="map-actions">
+      <button type="button" class="btn" id="btn-ubicacion">Mi ubicación</button>
+      <a class="btn" href="/lista.html">Lista</a>
+      <a class="btn btn-primary" href="/crear.html">Crear punto aquí</a>
+    </div>
+    <script src="/js/leaflet.js"></script>
+    <script type="module" src="/js/map.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js");
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+# Local development only. Deploy uses Dokploy Applications (Static + Dockerfile).
+services:
+  api:
+    build: ./api
+    environment:
+      PORT: 3000
+      SQLITE_PATH: /data/acopio.sqlite
+      TRUST_PROXY: "0"
+    volumes:
+      - sqlite_data:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+    expose:
+      - "3000"
+
+volumes:
+  sqlite_data:
