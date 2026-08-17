@@ -47,19 +47,20 @@ export function formatWhen(iso) {
   if (!iso) return "";
   const d = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
   if (Number.isNaN(d.getTime())) return iso;
-  const now = Date.now();
-  const diff = Math.max(0, now - d.getTime());
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "ahora";
-  if (min < 60) return `hace ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `hace ${h} h`;
-  return d.toLocaleString("es-CO", {
-    day: "numeric",
-    month: "short",
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const time = d.toLocaleTimeString("es-CO", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
+  if (sameDay) return time;
+  const dayNum = d.toLocaleDateString("es-CO", { day: "numeric" });
+  const mon = d.toLocaleDateString("es-CO", { month: "short" }).replace(/\.$/, "");
+  return `${dayNum} ${mon} · ${time}`;
 }
 
 export function errorText(err) {
