@@ -1,8 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { createDialog } from "../src/dialog.js";
 import { createBotServer, listen } from "../src/server.js";
-import { normalizeWahaEvent } from "../src/webhook.js";
+import { createWahaMessaging } from "../src/messaging/waha.js";
+import { createMetaMessaging } from "../src/messaging/meta.js";
 
 const event = {
   event: "message",
@@ -16,6 +18,42 @@ const event = {
     type: "chat",
   },
 };
+
+const META_APP_SECRET = "app-secret";
+
+const metaEvent = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: {
+              display_phone_number: "573136732685",
+              phone_number_id: "1099",
+            },
+            messages: [
+              {
+                from: "573001112233",
+                id: "wamid.AAA",
+                timestamp: "1",
+                type: "text",
+                text: { body: "dónde hay comida" },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+function metaSignature(rawBody, secret = META_APP_SECRET) {
+  const hex = createHmac("sha256", secret).update(rawBody).digest("hex");
+  return `sha256=${hex}`;
+}
 
 const PUNTO = {
   id: "p1",
@@ -69,13 +107,16 @@ async function startServer({ dialog, fetchImpl, webhookSecret } = {}) {
         },
       };
     });
+  const messaging = createWahaMessaging({
+    wahaBase: "http://waha:3000",
+    apiKey: "test-key",
+    session: "default",
+    webhookSecret,
+    fetchImpl: wahaFetch,
+  });
   const server = createBotServer({
     dialog: dialog ?? makeDialog(),
-    wahaBase: "http://waha:3000",
-    wahaKey: "test-key",
-    session: "default",
-    fetchImpl: wahaFetch,
-    webhookSecret,
+    messaging,
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
@@ -91,77 +132,155 @@ async function startServer({ dialog, fetchImpl, webhookSecret } = {}) {
   };
 }
 
-describe("normalizeWahaEvent", () => {
-  it("maps fixture fields", () => {
-    const n = normalizeWahaEvent(event);
-    assert.deepEqual(n, {
-      from: "573001112233@c.us",
-      messageId: "true_57300@c.us_AAA",
-      text: "dónde hay comida",
-      hasMedia: false,
-      fromMe: false,
-      isGroup: false,
-    });
-  });
-
-  it("ignores message.any", () => {
-    assert.equal(normalizeWahaEvent({ ...event, event: "message.any" }), null);
-  });
-
-  it("returns null without payload or unknown event", () => {
-    assert.equal(normalizeWahaEvent({ event: "message" }), null);
-    assert.equal(normalizeWahaEvent({ event: "session.status", payload: {} }), null);
-    assert.equal(normalizeWahaEvent(null), null);
-  });
-
-  it("fromMe still returns object", () => {
-    const n = normalizeWahaEvent({
-      ...event,
-      payload: { ...event.payload, fromMe: true },
-    });
-    assert.equal(n.fromMe, true);
-    assert.equal(n.from, event.payload.from);
-  });
-
-  it("isGroup from @g.us or payload.isGroup", () => {
-    const byJid = normalizeWahaEvent({
-      ...event,
-      payload: { ...event.payload, from: "120363@g.us" },
-    });
-    assert.equal(byJid.isGroup, true);
-
-    const byFlag = normalizeWahaEvent({
-      ...event,
-      payload: { ...event.payload, isGroup: true },
-    });
-    assert.equal(byFlag.isGroup, true);
-  });
-
-  it("text from caption when no body; hasMedia from type", () => {
-    const n = normalizeWahaEvent({
-      event: "message",
-      payload: {
-        id: "media-1",
-        from: "573001112233@c.us",
-        fromMe: false,
-        caption: "cobijas",
-        type: "image",
-      },
-    });
-    assert.equal(n.text, "cobijas");
-    assert.equal(n.hasMedia, true);
-  });
-});
-
 describe("webhook server", () => {
-  it("GET /salud is 200 with waha unknown", async () => {
+  it("GET /salud is 200 with provider waha", async () => {
     const srv = await startServer();
     try {
       const res = await fetch(`${srv.base}/salud`);
       assert.equal(res.status, 200);
-      assert.deepEqual(await res.json(), { ok: true, waha: "unknown" });
+      assert.deepEqual(await res.json(), {
+        ok: true,
+        provider: "waha",
+        messaging: "ok",
+      });
     } finally {
       await srv.close();
+    }
+  });
+
+  it("GET /webhook is 404 under waha", async () => {
+    const srv = await startServer();
+    try {
+      const res = await fetch(`${srv.base}/webhook`);
+      assert.equal(res.status, 404);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("GET /wa-hook with meta verify succeeds", async () => {
+    const messaging = createMetaMessaging({
+      phoneNumberId: "1",
+      accessToken: "t",
+      verifyToken: "verify-me",
+      appSecret: "s",
+      fetchImpl: async () => ({ ok: true, status: 200 }),
+    });
+    const dialog = makeDialog();
+    const server = createBotServer({ dialog, messaging });
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address();
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:${port}/wa-hook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=99`,
+      );
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get("content-type")?.includes("text/plain"), true);
+      assert.equal(await res.text(), "99");
+    } finally {
+      await new Promise((r, j) => server.close((e) => (e ? j(e) : r())));
+    }
+  });
+
+  it("POST /wa-hook Meta HMAC + Graph sendText", async () => {
+    const sent = [];
+    const messaging = createMetaMessaging({
+      phoneNumberId: "1099",
+      accessToken: "tok",
+      verifyToken: "verify-me",
+      appSecret: META_APP_SECRET,
+      graphVersion: "v21.0",
+      fetchImpl: async (url, init) => {
+        sent.push({ url: String(url), init });
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return "{}";
+          },
+        };
+      },
+    });
+    const dialog = makeDialog();
+    const server = createBotServer({ dialog, messaging });
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address();
+    const raw = JSON.stringify(metaEvent);
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/wa-hook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Hub-Signature-256": metaSignature(raw),
+        },
+        body: raw,
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), { ok: true });
+      assert.equal(sent.length, 1);
+      assert.equal(
+        sent[0].url,
+        "https://graph.facebook.com/v21.0/1099/messages",
+      );
+      assert.equal(sent[0].init.headers.Authorization, "Bearer tok");
+      const body = JSON.parse(sent[0].init.body);
+      assert.equal(body.messaging_product, "whatsapp");
+      assert.equal(body.to, "573001112233");
+      assert.equal(body.type, "text");
+      assert.equal(typeof body.text.body, "string");
+      assert.ok(body.text.body.length > 0);
+    } finally {
+      await new Promise((r, j) => server.close((e) => (e ? j(e) : r())));
+    }
+  });
+
+  it("POST /wa-hook Meta missing or wrong HMAC is 401", async () => {
+    const sent = [];
+    const messaging = createMetaMessaging({
+      phoneNumberId: "1099",
+      accessToken: "tok",
+      verifyToken: "verify-me",
+      appSecret: META_APP_SECRET,
+      graphVersion: "v21.0",
+      fetchImpl: async (url, init) => {
+        sent.push({ url: String(url), init });
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return "{}";
+          },
+        };
+      },
+    });
+    const dialog = makeDialog();
+    const server = createBotServer({ dialog, messaging });
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address();
+    const raw = JSON.stringify(metaEvent);
+    try {
+      const missing = await fetch(`http://127.0.0.1:${port}/wa-hook`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: raw,
+      });
+      assert.equal(missing.status, 401);
+      assert.deepEqual(await missing.json(), { error: "no_autorizado" });
+      assert.equal(sent.length, 0);
+
+      const wrong = await fetch(`http://127.0.0.1:${port}/wa-hook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Hub-Signature-256": "sha256=deadbeef",
+        },
+        body: raw,
+      });
+      assert.equal(wrong.status, 401);
+      assert.deepEqual(await wrong.json(), { error: "no_autorizado" });
+      assert.equal(sent.length, 0);
+    } finally {
+      await new Promise((r, j) => server.close((e) => (e ? j(e) : r())));
     }
   });
 

@@ -46,13 +46,19 @@ GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits e
 
 ## Bot WhatsApp
 
-El bot (`bot/`) llama al **WAHA ya desplegado** en `https://waha.vowtech.lat`. No hay servicio `waha` en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).
+El bot (`bot/`) usa un transporte intercambiable. Por defecto es **WAHA** (`WHATSAPP_PROVIDER=waha`) contra el WAHA ya desplegado en `https://waha.vowtech.lat`. No hay servicio `waha` ni contenedor Meta en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).
+
+Para pasar a **WhatsApp Cloud API**, setear `WHATSAPP_PROVIDER=meta` y las cuatro `META_*` obligatorias (`META_PHONE_NUMBER_ID`, `META_ACCESS_TOKEN`, `META_VERIFY_TOKEN`, `META_APP_SECRET`). Misma URL de webhook en ambos proveedores.
 
 Webhook público (Dokploy domain path, Strip Path **off**, service `bot`, puerto 3001):
 
 `https://insumos.vowtech.lat/wa-hook`
 
 En el dashboard WAHA, la sesión cuyo nombre coincide con `WAHA_SESSION`: `url: https://insumos.vowtech.lat/wa-hook`, `events: ["message"]`. Si `WEBHOOK_SECRET` está set, WAHA debe enviar el header `X-Webhook-Secret`. QR en `https://waha.vowtech.lat`.
+
+Con Meta, el callback de la app es el mismo: `https://insumos.vowtech.lat/wa-hook` (GET verify + POST con HMAC).
+
+Plantilla para local y Dokploy: `.env.example` (copiar a `.env`; no commitear secretos).
 
 ### Variables de entorno (bot)
 
@@ -61,10 +67,16 @@ En el dashboard WAHA, la sesión cuyo nombre coincide con `WAHA_SESSION`: `url: 
 | `PORT` | `3001` | Interno; solo `expose` |
 | `API_BASE` | `http://api:3000` | DNS del compose |
 | `PUBLIC_WEB` | `https://insumos.vowtech.lat` | Links de ficha |
+| `WHATSAPP_PROVIDER` | `waha` | `waha` o `meta` |
 | `WAHA_BASE` | `https://waha.vowtech.lat` | Cliente; no un segundo WAHA |
 | `WAHA_API_KEY` | secret | Mismo key del proyecto WAHA |
 | `WAHA_SESSION` | (Dokploy env, obligatorio) | Nombre exacto de la sesión en WAHA |
 | `WEBHOOK_SECRET` | secret (opcional) | Header `X-Webhook-Secret` |
+| `META_PHONE_NUMBER_ID` | (Dokploy, si meta) | |
+| `META_ACCESS_TOKEN` | secret | |
+| `META_VERIFY_TOKEN` | secret | Handshake GET |
+| `META_APP_SECRET` | secret | HMAC `X-Hub-Signature-256` |
+| `META_GRAPH_VERSION` | `v21.0` | opcional |
 | `LLM_PROVIDER` | `minimax` | Fallback si las reglas no entienden |
 | `LLM_BASE_URL` | `https://api.minimax.io/v1` | |
 | `LLM_MODEL` | `MiniMax-M3` | |
@@ -88,4 +100,5 @@ No publiques puertos Docker a `0.0.0.0`. El bot solo tiene `expose: "3001"`.
 ## Spec
 
 `docs/superpowers/specs/2026-08-16-acopio-pereira-design.md`  
-`docs/superpowers/specs/2026-08-17-whatsapp-bot-design.md`
+`docs/superpowers/specs/2026-08-17-whatsapp-bot-design.md`  
+`docs/superpowers/specs/2026-08-17-whatsapp-providers-design.md`

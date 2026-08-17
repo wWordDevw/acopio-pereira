@@ -7,6 +7,8 @@ Volumen SQLite: `acopio_data` / `/data/acopio.sqlite` — **no renombrar** o se 
 
 Bot WhatsApp V1: **solo texto**. Reusa WAHA existente `https://waha.vowtech.lat` (proyecto Dokploy WAHA, compose `waha-hqxniz`). **No** desplegar un segundo WAHA ni volumen `waha_sessions` aquí. Sesión por env **`WAHA_SESSION`** (sin default en código). QR en el dashboard existente (`https://waha.vowtech.lat`). MiniMax-M3 solo si `parseVoz`/zonas no entienden. Sin STT / audio. Webhook `https://insumos.vowtech.lat/wa-hook`.
 
+Transporte WhatsApp intercambiable vía `WHATSAPP_PROVIDER` (`waha` | `meta`; default `waha`). Cloud API listo por env (`META_*`); no hace falta tocar Traefik ni el path `/wa-hook`.
+
 ## TODO
 
 - [ ] **Bot WhatsApp con WAHA** — la gente escribe y el bot dice **qué hay y a dónde ir**.

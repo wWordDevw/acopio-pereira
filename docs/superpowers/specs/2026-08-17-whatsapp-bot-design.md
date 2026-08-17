@@ -21,7 +21,7 @@ Hoy el inventario solo se consulta en la PWA (`https://insumos.vowtech.lat`). En
 |------|----------|
 | Alcance V1 | Consulta conversacional (2–3 turnos). No registrar stock. |
 | Número | Chip / WhatsApp normal. Sesión por QR. Un solo número. |
-| Tubería | **WAHA ya desplegado** en `https://waha.vowtech.lat` (proyecto Dokploy `WAHA`, compose `waha-hqxniz`). No se vuelve a desplegar WAHA en este repo. No Baileys crudo. No Cloud API. |
+| Tubería | **WAHA ya desplegado** en `https://waha.vowtech.lat` (proyecto Dokploy `WAHA`, compose `waha-hqxniz`). No se vuelve a desplegar WAHA en este repo. No Baileys crudo. Cloud API (Meta) se especifica en `2026-08-17-whatsapp-providers-design.md` (adapter por env; default sigue siendo WAHA). |
 | Ubicación | Barrio o zona **por texto**. No pin GPS de WhatsApp. |
 | Entender | `parseVoz` + categorías + lista de zonas primero. **LLM solo si no entiende.** |
 | LLM | Router intercambiable (contrato `complete`). V1: **MiniMax-M3** vía OpenAI-compatible. |
@@ -39,7 +39,7 @@ Hoy el inventario solo se consulta en la PWA (`https://insumos.vowtech.lat`). En
 - Registrar entrada/salida por WhatsApp.
 - Grupos, listas de difusión, broadcast.
 - Pin de ubicación de WhatsApp.
-- WhatsApp Cloud API (oficial Meta).
+- WhatsApp Cloud API (oficial Meta) — ver `2026-08-17-whatsapp-providers-design.md` (implementado como adapter; no live hasta flip de env).
 - Más de un número / varias sesiones.
 - LLM redactando la respuesta de inventario.
 - Guardar historial de chats.
