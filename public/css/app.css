@@ -343,6 +343,11 @@ path.yo-accuracy {
   width: auto;
 }
 
+.cats .btn-cat.is-on {
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
 .cats .btn-plus {
   width: 3.4rem;
   padding-left: 0;

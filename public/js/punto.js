@@ -189,7 +189,9 @@ async function main() {
     categoriaActiva = slug;
     qs("productos-titulo").textContent = label;
     panel.hidden = false;
-    cats.hidden = true;
+    for (const btn of cats.querySelectorAll(".btn-cat")) {
+      btn.classList.toggle("is-on", btn.dataset.cat === slug);
+    }
     pStatus.textContent = "";
     lista.replaceChildren();
     try {
@@ -245,6 +247,7 @@ async function main() {
     const plus1 = document.createElement("button");
     plus1.type = "button";
     plus1.className = "btn btn-cat";
+    plus1.dataset.cat = slug;
     plus1.textContent = label;
     plus1.addEventListener("click", () => abrirCategoria(slug, label));
     const plus5 = document.createElement("button");
@@ -259,8 +262,10 @@ async function main() {
 
   qs("productos-cerrar").addEventListener("click", () => {
     panel.hidden = true;
-    cats.hidden = false;
     categoriaActiva = null;
+    for (const btn of cats.querySelectorAll(".btn-cat")) {
+      btn.classList.remove("is-on");
+    }
   });
 
   qs("producto-nuevo").addEventListener("submit", async (ev) => {
