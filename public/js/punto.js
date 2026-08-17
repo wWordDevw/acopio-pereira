@@ -483,6 +483,7 @@ async function main() {
   }
 
   function discardLoteIfNeeded() {
+    if (loteEnviando) return false;
     if (!loteDraft) return true;
     if (loteDirty() && !confirm("¿Descartar este lote?")) return false;
     resetLote();
@@ -673,8 +674,10 @@ async function main() {
     status.classList.remove("is-error", "is-ok");
     const n = loteDraft.lineas.reduce((sum, l) => sum + l.cantidad, 0);
     const when = formatWhen(loteDraft.abiertaAt.toISOString());
+    const tipoLote = loteDraft.tipo;
+    const fotoFile = loteDraft.fotoFile;
     const body = {
-      tipo: loteDraft.tipo,
+      tipo: tipoLote,
       abierta_at: loteDraft.abiertaAt.toISOString(),
       dia: loteDraft.dia,
       lineas: loteDraft.lineas.map((l) =>
@@ -685,14 +688,14 @@ async function main() {
       idempotency_key: loteDraft.idempotency_key,
     };
     try {
-      if (loteDraft.fotoFile) {
-        body.foto = await readFileAsFoto(loteDraft.fotoFile);
+      if (fotoFile) {
+        body.foto = await readFileAsFoto(fotoFile);
       }
       const data = await postOrden(id, body);
       const extra = (data.aplicados || []).some((a) => a.ajustado)
         ? " Se ajustó a lo que había."
         : "";
-      const verbo = loteDraft.tipo === "sale" ? "Salieron" : "Entraron";
+      const verbo = tipoLote === "sale" ? "Salieron" : "Entraron";
       paint(data);
       resetLote();
       status.textContent = `${verbo} ${n} en el lote de las ${when}.${extra}`;
@@ -706,13 +709,17 @@ async function main() {
   });
 
   window.addEventListener("beforeunload", (ev) => {
-    if (!loteDirty()) return;
+    if (!loteEnviando && !loteDirty()) return;
     ev.preventDefault();
     ev.returnValue = "";
   });
   const navBack = document.querySelector(".nav-back");
   if (navBack) {
     navBack.addEventListener("click", (ev) => {
+      if (loteEnviando) {
+        ev.preventDefault();
+        return;
+      }
       if (!loteDirty()) return;
       if (!confirm("¿Descartar este lote?")) ev.preventDefault();
     });
