@@ -15,6 +15,10 @@ const PRODUCTOS_SQL = readFileSync(
   join(__dirname, "../sql/002_productos.sql"),
   "utf8",
 );
+const ORDENES_SQL = readFileSync(
+  join(__dirname, "../sql/003_ordenes.sql"),
+  "utf8",
+);
 
 function hasColumn(db, table, name) {
   return db
@@ -30,6 +34,19 @@ function migrateProductos(db) {
       "alter table movimientos add column producto_id text references productos(id)",
     );
   }
+}
+
+function migrateOrdenes(db) {
+  db.exec(ORDENES_SQL);
+  if (!hasColumn(db, "movimientos", "orden_id")) {
+    db.exec(
+      "alter table movimientos add column orden_id text references ordenes(id)",
+    );
+  }
+  // Index after column exists (orden_id is added via ALTER, not in 001_init)
+  db.exec(
+    "create index if not exists movimientos_orden on movimientos (orden_id)",
+  );
 }
 
 function seedProductos(db) {
@@ -55,6 +72,7 @@ export function openDb(path, options = {}) {
   db.pragma("foreign_keys = ON");
   db.exec(INIT_SQL);
   migrateProductos(db);
+  migrateOrdenes(db);
   seedProductos(db);
   db.fotosDir = options.fotosDir || join(dirname(path), "fotos");
   mkdirSync(db.fotosDir, { recursive: true });
@@ -69,7 +87,12 @@ export function openDbReadOnly(path) {
 }
 
 export function findByIdempotency(db, table, key) {
-  const allowed = { puntos: true, movimientos: true, productos: true };
+  const allowed = {
+    puntos: true,
+    movimientos: true,
+    productos: true,
+    ordenes: true,
+  };
   if (!allowed[table]) throw new Error("tabla_invalida");
   return db.prepare(`select * from ${table} where idempotency_key = ?`).get(key);
 }
@@ -199,9 +222,11 @@ export function listPuntos(db) {
 export function listMovimientos(db, puntoId, limit = 30) {
   return db
     .prepare(
-      `select * from movimientos
-       where punto_id = ?
-       order by created_at desc, id desc
+      `select m.*, o.abierta_at as orden_abierta_at
+       from movimientos m
+       left join ordenes o on o.id = m.orden_id
+       where m.punto_id = ?
+       order by m.created_at desc, m.id desc
        limit ?`,
     )
     .all(puntoId, limit);
@@ -266,6 +291,135 @@ export function insertMovimientos(db, { puntoId, items, idempotency_key }) {
       "update puntos set updated_at = datetime('now') where id = ?",
     ).run(puntoId);
     return { created: true, rows, replay: false };
+  })();
+}
+
+export function getOrden(db, id) {
+  return db.prepare("select * from ordenes where id = ?").get(id);
+}
+
+export function listLineasOrden(db, ordenId) {
+  return db
+    .prepare(
+      `select m.*, p.nombre as nombre, p.foto_path as foto_path
+       from movimientos m
+       left join productos p on p.id = m.producto_id
+       where m.orden_id = ?
+       order by m.created_at asc, m.id asc`,
+    )
+    .all(ordenId);
+}
+
+export function listOrdenes(db, puntoId, dia) {
+  return db
+    .prepare(
+      `select o.*,
+         (select count(*) from movimientos m where m.orden_id = o.id) as lineas,
+         (select coalesce(sum(m.cantidad), 0) from movimientos m where m.orden_id = o.id) as unidades
+       from ordenes o
+       where o.punto_id = ? and o.dia = ?
+       order by o.abierta_at desc`,
+    )
+    .all(puntoId, dia);
+}
+
+export function insertOrden(
+  db,
+  {
+    id: orderedId,
+    puntoId,
+    tipo,
+    abierta_at,
+    dia,
+    nota,
+    foto_path,
+    lineas,
+    idempotency_key,
+  },
+) {
+  const existing = findByIdempotency(db, "ordenes", idempotency_key);
+  if (existing) {
+    return {
+      created: false,
+      orden: existing,
+      rows: listLineasOrden(db, existing.id),
+      replay: true,
+    };
+  }
+
+  return db.transaction(() => {
+    const id = orderedId ?? randomUUID();
+    db.prepare(
+      `insert into ordenes (
+        id, punto_id, tipo, abierta_at, dia, nota, foto_path, idempotency_key
+      ) values (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      puntoId,
+      tipo,
+      abierta_at,
+      dia,
+      nota ?? null,
+      foto_path ?? null,
+      idempotency_key,
+    );
+
+    const rows = [];
+    for (let i = 0; i < lineas.length; i += 1) {
+      const item = lineas[i];
+      let cantidad = item.cantidad;
+      let ajustado = false;
+      if (tipo === "sale") {
+        const disponible = stockOf(
+          db,
+          puntoId,
+          item.categoria,
+          item.producto_id || null,
+        );
+        if (disponible <= 0) {
+          const err = new Error("sin_stock");
+          err.status = 400;
+          throw err;
+        }
+        if (cantidad > disponible) {
+          cantidad = disponible;
+          ajustado = true;
+        }
+      }
+      const movId = randomUUID();
+      const key = `${idempotency_key}:m:${i}`;
+      db.prepare(
+        `insert into movimientos (
+          id, punto_id, tipo, categoria, cantidad, texto_original,
+          idempotency_key, producto_id, orden_id
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        movId,
+        puntoId,
+        tipo,
+        item.categoria,
+        cantidad,
+        item.texto_original ?? null,
+        key,
+        item.producto_id ?? null,
+        id,
+      );
+      rows.push({
+        ...db.prepare("select * from movimientos where id = ?").get(movId),
+        ajustado,
+      });
+    }
+
+    db.prepare(
+      "update puntos set updated_at = datetime('now') where id = ?",
+    ).run(puntoId);
+
+    return {
+      created: true,
+      orden: getOrden(db, id),
+      rows,
+      replay: false,
+    };
   })();
 }
 
