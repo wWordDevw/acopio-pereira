@@ -591,7 +591,7 @@ export function createServer({
           return;
         }
 
-        const body = await readBody(req);
+        const body = await readBody(req, 1_300_000);
         const parsed = validateOrden(body);
         if (!parsed.ok) {
           json(res, parsed.status, { error: parsed.error });

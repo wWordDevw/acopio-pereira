@@ -234,4 +234,24 @@ describe("ordenes api", () => {
         tinyFoto.body.error === "foto_grande",
     );
   });
+
+  it("accepts a lot photo larger than the default 16k body limit", async () => {
+    const imagen_base64 = PNG + "A".repeat(20_000);
+    const payload = {
+      tipo: "entra",
+      abierta_at: ABIERTA,
+      dia: DIA,
+      lineas: [{ categoria: "cobijas", cantidad: 1 }],
+      foto: { imagen_base64, mime: "image/png" },
+      idempotency_key: KEY(8),
+    };
+    const raw = JSON.stringify(payload);
+    assert.ok(raw.length > 16_000);
+    assert.ok(Buffer.from(imagen_base64, "base64").length < 800_000);
+
+    const res = await post(`/api/puntos/${punto.id}/ordenes`, payload);
+    assert.equal(res.status, 201);
+    assert.ok(res.body.orden?.foto);
+    assert.equal(res.body.error, undefined);
+  });
 });
