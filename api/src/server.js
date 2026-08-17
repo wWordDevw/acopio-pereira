@@ -1,6 +1,12 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -15,6 +21,10 @@ import {
   getProducto,
   insertProducto,
   setProductoFoto,
+  insertOrden,
+  getOrden,
+  listOrdenes,
+  listLineasOrden,
 } from "./db.js";
 import {
   validatePunto,
@@ -24,6 +34,8 @@ import {
   validateInterpretar,
   validateProducto,
   validateFoto,
+  validateOrden,
+  validateDia,
 } from "./validate.js";
 import { parseVoz } from "./parse-voz.js";
 import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
@@ -171,6 +183,45 @@ function publicMovimiento(row) {
     texto_original: row.texto_original,
     created_at: row.created_at,
     ajustado: Boolean(row.ajustado),
+    orden_id: row.orden_id || null,
+    orden_abierta_at: row.orden_id ? row.orden_abierta_at || null : null,
+  };
+}
+
+function publicOrden(row, lineas) {
+  return {
+    id: row.id,
+    punto_id: row.punto_id,
+    tipo: row.tipo,
+    abierta_at: row.abierta_at,
+    dia: row.dia,
+    cerrada_at: row.cerrada_at,
+    nota: row.nota,
+    foto: row.foto_path ? `/api/ordenes/${row.id}/foto` : null,
+    lineas: lineas.map((l) => ({
+      categoria: l.categoria,
+      etiqueta: ETIQUETAS[l.categoria] || l.categoria,
+      producto_id: l.producto_id || null,
+      nombre: l.nombre || null,
+      cantidad: l.cantidad,
+      foto:
+        l.producto_id && l.foto_path
+          ? `/api/productos/${l.producto_id}/foto`
+          : null,
+    })),
+    unidades: lineas.reduce((sum, l) => sum + l.cantidad, 0),
+  };
+}
+
+function publicOrdenResumen(row) {
+  return {
+    id: row.id,
+    tipo: row.tipo,
+    abierta_at: row.abierta_at,
+    dia: row.dia,
+    lineas: row.lineas,
+    unidades: row.unidades,
+    foto: row.foto_path ? `/api/ordenes/${row.id}/foto` : null,
   };
 }
 
@@ -260,6 +311,9 @@ export function createServer({
             productos: "GET /api/productos",
             crear_punto: "POST /api/puntos",
             movimiento: "POST /api/puntos/:id/movimientos",
+            crear_orden: "POST /api/puntos/:id/ordenes",
+            ordenes: "GET /api/puntos/:id/ordenes?dia=",
+            orden: "GET /api/ordenes/:id",
             salud: "GET /api/salud",
           },
         });
@@ -413,6 +467,67 @@ export function createServer({
         return;
       }
 
+      if (
+        req.method === "GET" &&
+        path.startsWith("/api/ordenes/") &&
+        path.endsWith("/foto")
+      ) {
+        const idRaw = path.slice(
+          "/api/ordenes/".length,
+          path.length - "/foto".length,
+        );
+        const idParsed = validatePuntoId(idRaw);
+        if (!idParsed.ok) {
+          json(res, idParsed.status, { error: idParsed.error });
+          return;
+        }
+        const orden = getOrden(db, idParsed.value);
+        if (!orden || !orden.foto_path) {
+          json(res, 404, { error: "no_encontrado" });
+          return;
+        }
+        try {
+          const buf = readFileSync(orden.foto_path);
+          const ext = extname(orden.foto_path).toLowerCase();
+          const mime =
+            ext === ".png"
+              ? "image/png"
+              : ext === ".webp"
+                ? "image/webp"
+                : "image/jpeg";
+          res.writeHead(200, {
+            "content-type": mime,
+            "content-length": buf.length,
+            "cache-control": "public, max-age=86400",
+            ...CORS_GET,
+          });
+          res.end(buf);
+        } catch {
+          json(res, 404, { error: "no_encontrado" });
+        }
+        return;
+      }
+
+      if (req.method === "GET" && path.startsWith("/api/ordenes/")) {
+        const rest = path.slice("/api/ordenes/".length);
+        if (rest.includes("/")) {
+          json(res, 404, { error: "no_encontrado" });
+          return;
+        }
+        const idParsed = validatePuntoId(rest);
+        if (!idParsed.ok) {
+          json(res, idParsed.status, { error: idParsed.error });
+          return;
+        }
+        const orden = getOrden(db, idParsed.value);
+        if (!orden) {
+          json(res, 404, { error: "no_encontrado" });
+          return;
+        }
+        json(res, 200, publicOrden(orden, listLineasOrden(db, orden.id)));
+        return;
+      }
+
       if (req.method === "GET" && path === "/api/consultar") {
         const parsed = validateConsulta(queryFrom(url));
         if (!parsed.ok) {
@@ -437,6 +552,153 @@ export function createServer({
         const rows = listFiltered(db, parsed.value);
         json(res, 200, {
           puntos: rows.map((r) => publicPunto(r, r.inventario)),
+        });
+        return;
+      }
+
+      if (
+        (req.method === "GET" || req.method === "POST") &&
+        path.startsWith("/api/puntos/") &&
+        path.endsWith("/ordenes")
+      ) {
+        const idRaw = path.slice(
+          "/api/puntos/".length,
+          path.length - "/ordenes".length,
+        );
+        const idParsed = validatePuntoId(idRaw);
+        if (!idParsed.ok) {
+          json(res, idParsed.status, { error: idParsed.error });
+          return;
+        }
+        const punto = getPunto(db, idParsed.value);
+        if (!punto) {
+          json(res, 404, { error: "no_encontrado" });
+          return;
+        }
+
+        if (req.method === "GET") {
+          const diaParsed = validateDia(url.searchParams.get("dia"));
+          if (!diaParsed.ok) {
+            json(res, diaParsed.status, { error: diaParsed.error });
+            return;
+          }
+          json(res, 200, {
+            ordenes: listOrdenes(db, punto.id, diaParsed.value).map(
+              publicOrdenResumen,
+            ),
+          });
+          return;
+        }
+
+        const rate = hitRateLimit(
+          db,
+          `mov:${hashIp(clientIp(req, trustProxy))}`,
+          MOV_LIMIT,
+        );
+        if (rate.limited) {
+          json(res, 429, { error: "rate_limit" });
+          return;
+        }
+
+        const body = await readBody(req, 1_300_000);
+        const parsed = validateOrden(body);
+        if (!parsed.ok) {
+          json(res, parsed.status, { error: parsed.error });
+          return;
+        }
+
+        const lineas = [];
+        for (const raw of parsed.value.lineas) {
+          if (raw.producto_id) {
+            const prod = getProducto(db, raw.producto_id);
+            if (!prod) {
+              json(res, 404, { error: "no_encontrado" });
+              return;
+            }
+            lineas.push({
+              categoria: prod.categoria,
+              cantidad: raw.cantidad,
+              producto_id: prod.id,
+            });
+          } else {
+            lineas.push({
+              categoria: raw.categoria,
+              cantidad: raw.cantidad,
+              producto_id: null,
+            });
+          }
+        }
+
+        const id = randomUUID();
+        let foto_path = null;
+        let photoBuf = null;
+        if (parsed.value.foto) {
+          let buf;
+          try {
+            buf = Buffer.from(parsed.value.foto.imagen_base64, "base64");
+          } catch {
+            json(res, 400, { error: "foto_invalida" });
+            return;
+          }
+          if (buf.length < 8 || buf.length > 800_000) {
+            json(res, 400, { error: "foto_grande" });
+            return;
+          }
+          const ext =
+            parsed.value.foto.mime === "image/png"
+              ? ".png"
+              : parsed.value.foto.mime === "image/webp"
+                ? ".webp"
+                : ".jpg";
+          foto_path = join(photoDir, `orden-${id}${ext}`);
+          photoBuf = buf;
+        }
+
+        if (photoBuf && foto_path) {
+          mkdirSync(photoDir, { recursive: true });
+          writeFileSync(foto_path, photoBuf);
+        }
+
+        let result;
+        try {
+          result = insertOrden(db, {
+            id,
+            puntoId: punto.id,
+            tipo: parsed.value.tipo,
+            abierta_at: parsed.value.abierta_at,
+            dia: parsed.value.dia,
+            nota: parsed.value.nota,
+            foto_path,
+            lineas,
+            idempotency_key: parsed.value.idempotency_key,
+          });
+        } catch (err) {
+          if (photoBuf && foto_path) {
+            try {
+              unlinkSync(foto_path);
+            } catch {
+              /* orphan file is harmless */
+            }
+          }
+          throw err;
+        }
+
+        if (
+          !result.created &&
+          result.orden.foto_path &&
+          photoBuf &&
+          !existsSync(result.orden.foto_path)
+        ) {
+          mkdirSync(photoDir, { recursive: true });
+          writeFileSync(result.orden.foto_path, photoBuf);
+        }
+
+        const fresh = getPunto(db, punto.id);
+        json(res, result.created ? 201 : 200, {
+          ...publicPunto(fresh, stockByPunto(db, punto.id)),
+          orden: publicOrden(result.orden, listLineasOrden(db, result.orden.id)),
+          aplicados: result.rows.map(publicMovimiento),
+          movimientos: listMovimientos(db, punto.id, 30).map(publicMovimiento),
         });
         return;
       }

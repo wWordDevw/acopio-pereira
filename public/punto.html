@@ -36,15 +36,26 @@
       <p id="status" class="status"></p>
 
       <section class="registrar" aria-labelledby="btn-registrar">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="btn-registrar"
-          aria-expanded="false"
-          aria-controls="registrar-panel"
-        >
-          Registrar insumos
-        </button>
+        <div class="stack" id="registrar-acciones">
+          <button
+            type="button"
+            class="btn btn-primary"
+            id="btn-registrar"
+            aria-expanded="false"
+            aria-controls="registrar-panel"
+          >
+            Registrar insumos
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            id="btn-lote"
+            aria-expanded="false"
+            aria-controls="lote-panel"
+          >
+            Registrar lote
+          </button>
+        </div>
         <div id="registrar-panel" class="registrar-panel" hidden>
           <div class="registrar-head">
             <h2 id="registrar-titulo">Anotar entrada</h2>
@@ -103,7 +114,7 @@
               Cerrar lista
             </button>
           </section>
-          <div class="dictar-box">
+          <div class="dictar-box" id="dictar-box">
             <p class="dictar-kicker">O dicta una lista</p>
             <button type="button" class="btn btn-primary btn-mic" id="mic">
               Dictar insumos
@@ -136,13 +147,76 @@
             </section>
           </div>
         </div>
+        <div id="lote-panel" class="registrar-panel lote-panel" hidden>
+          <div class="registrar-head">
+            <h2 id="lote-hora">Lote</h2>
+            <button type="button" class="btn btn-ghost btn-compact" id="btn-lote-cerrar">
+              Cerrar
+            </button>
+          </div>
+          <div id="lote-toggle" class="toggle">
+            <button type="button" class="btn is-on" id="lote-entra">Entra</button>
+            <button type="button" class="btn" id="lote-sale">Sale</button>
+          </div>
+          <p class="hint">
+            Elige la categoría. Cada toque suma al lote. No se guarda hasta
+            confirmar.
+          </p>
+          <div id="lote-picker"></div>
+          <ul id="lote-lineas" class="revision-lista lote-lineas"></ul>
+          <div class="stack">
+            <label class="btn btn-ghost producto-foto-btn">
+              Foto del lote
+              <input
+                id="lote-foto"
+                class="sr-only"
+                type="file"
+                accept="image/*"
+                capture="environment"
+              />
+            </label>
+            <p id="lote-foto-nombre" class="hint" hidden></p>
+            <button type="button" class="btn btn-ghost" id="btn-lote-quitar-foto" hidden>
+              Quitar foto
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-lote-confirmar">
+              Confirmar lote
+            </button>
+          </div>
+        </div>
       </section>
+
+      <details class="movs-fold" id="ordenes-fold">
+        <summary>Órdenes de hoy</summary>
+        <ul id="ordenes-lista" class="ordenes-lista"></ul>
+      </details>
 
       <details class="movs-fold">
         <summary>Últimos movimientos</summary>
         <ul id="movs" class="mov"></ul>
       </details>
     </main>
+    <section
+      id="orden-ficha"
+      class="orden-ficha"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="orden-ficha-hora"
+    >
+      <div class="orden-ficha-sheet">
+        <div class="registrar-head">
+          <h2 id="orden-ficha-hora">Lote</h2>
+          <button type="button" class="btn btn-ghost btn-compact" id="btn-orden-ficha-cerrar">
+            Cerrar
+          </button>
+        </div>
+        <p id="orden-ficha-tipo" class="orden-ficha-tipo"></p>
+        <p id="orden-ficha-nota" class="hint" hidden></p>
+        <img id="orden-ficha-foto" class="orden-ficha-foto" alt="Foto del lote" hidden />
+        <ul id="orden-ficha-lineas" class="orden-ficha-lineas"></ul>
+      </div>
+    </section>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="/js/punto.js"></script>
   </body>

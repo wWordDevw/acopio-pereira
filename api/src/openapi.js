@@ -108,6 +108,146 @@ const movimiento = {
       description:
         "true si una salida pidió más de lo disponible y se recortó al stock.",
     },
+    orden_id: {
+      type: "string",
+      format: "uuid",
+      nullable: true,
+      description: "Si el movimiento pertenece a un lote; null si es suelto.",
+    },
+    orden_abierta_at: {
+      type: "string",
+      nullable: true,
+      description: "ISO de apertura del lote cuando hay `orden_id`.",
+      example: "2026-08-17T18:12:00.000Z",
+    },
+  },
+};
+
+const ordenLinea = {
+  type: "object",
+  required: ["categoria", "etiqueta", "producto_id", "nombre", "cantidad", "foto"],
+  properties: {
+    categoria: { type: "string", enum: categoriaEnum },
+    etiqueta: { type: "string", example: "Niños" },
+    producto_id: {
+      type: "string",
+      format: "uuid",
+      nullable: true,
+      description: "Producto del catálogo, o null si la línea es solo por categoría.",
+    },
+    nombre: {
+      type: "string",
+      nullable: true,
+      description: "Nombre del producto del catálogo, si hay.",
+      example: "Pañales talla M",
+    },
+    cantidad: { type: "integer", minimum: 1, maximum: 999 },
+    foto: {
+      type: "string",
+      nullable: true,
+      description: "URL de la foto de catálogo del producto, o null.",
+      example: "/api/productos/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/foto",
+    },
+  },
+};
+
+const ordenResumen = {
+  type: "object",
+  required: [
+    "id",
+    "tipo",
+    "abierta_at",
+    "dia",
+    "lineas",
+    "unidades",
+    "foto",
+  ],
+  properties: {
+    id: { type: "string", format: "uuid" },
+    tipo: { type: "string", enum: ["entra", "sale"] },
+    abierta_at: {
+      type: "string",
+      description: "ISO-8601 del instante en que se abrió el panel del lote.",
+      example: "2026-08-17T18:12:00.000Z",
+    },
+    dia: {
+      type: "string",
+      description: "Día civil del teléfono al abrir (`YYYY-MM-DD`).",
+      example: "2026-08-17",
+    },
+    lineas: {
+      type: "integer",
+      minimum: 1,
+      description: "Cantidad de líneas (movimientos) del lote.",
+      example: 3,
+    },
+    unidades: {
+      type: "integer",
+      minimum: 1,
+      description: "Suma de cantidades de todas las líneas.",
+      example: 38,
+    },
+    foto: {
+      type: "string",
+      nullable: true,
+      description: "URL de la foto del lote, o null.",
+      example: "/api/ordenes/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/foto",
+    },
+  },
+};
+
+const orden = {
+  type: "object",
+  required: [
+    "id",
+    "punto_id",
+    "tipo",
+    "abierta_at",
+    "dia",
+    "cerrada_at",
+    "nota",
+    "foto",
+    "lineas",
+    "unidades",
+  ],
+  properties: {
+    id: { type: "string", format: "uuid" },
+    punto_id: { type: "string", format: "uuid" },
+    tipo: { type: "string", enum: ["entra", "sale"] },
+    abierta_at: {
+      type: "string",
+      description: "ISO-8601 del instante en que se abrió el panel del lote.",
+      example: "2026-08-17T18:12:00.000Z",
+    },
+    dia: {
+      type: "string",
+      description: "Día civil del teléfono al abrir (`YYYY-MM-DD`).",
+      example: "2026-08-17",
+    },
+    cerrada_at: {
+      type: "string",
+      description: "UTC SQLite al confirmar (siempre presente; no hay orden abierta).",
+      example: "2026-08-17 18:15:02",
+    },
+    nota: {
+      type: "string",
+      nullable: true,
+      maxLength: 200,
+      example: "Donación de la camioneta roja",
+    },
+    foto: {
+      type: "string",
+      nullable: true,
+      description: "URL de la foto del lote, o null.",
+      example: "/api/ordenes/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/foto",
+    },
+    lineas: { type: "array", items: ordenLinea },
+    unidades: {
+      type: "integer",
+      minimum: 1,
+      description: "Suma de cantidades de todas las líneas.",
+      example: 38,
+    },
   },
 };
 
@@ -713,6 +853,339 @@ export function buildOpenApi({ serverUrl }) {
           },
         },
       },
+      "/api/puntos/{id}/ordenes": {
+        get: {
+          tags: ["Consulta"],
+          summary: "Órdenes (lotes) de un punto en un día civil",
+          operationId: "listOrdenes",
+          description: [
+            "Lista las órdenes del punto con `ordenes.dia` igual a la query.",
+            "El día lo manda el reloj local del teléfono (`YYYY-MM-DD`); el servidor no convierte timezones.",
+            "Orden: `abierta_at` descendente.",
+          ].join("\n"),
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "dia",
+              in: "query",
+              required: true,
+              description: "Día civil `YYYY-MM-DD` (del teléfono al abrir el panel).",
+              schema: {
+                type: "string",
+                pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+                example: "2026-08-17",
+              },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Órdenes del día.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["ordenes"],
+                    properties: {
+                      ordenes: { type: "array", items: ordenResumen },
+                    },
+                  },
+                  example: {
+                    ordenes: [
+                      {
+                        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                        tipo: "entra",
+                        abierta_at: "2026-08-17T18:12:00.000Z",
+                        dia: "2026-08-17",
+                        lineas: 3,
+                        unidades: 38,
+                        foto: "/api/ordenes/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/foto",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            400: {
+              description: "`dia_invalido` si falta o no es un día civil válido.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+            404: {
+              description: "El punto no existe.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+          },
+        },
+        post: {
+          tags: ["Escritura"],
+          summary: "Registrar un lote (orden) de entrada o salida",
+          operationId: "crearOrden",
+          description: [
+            "Crea la orden y sus movimientos en **una transacción**. Si algo falla, no queda orden ni movimiento.",
+            "",
+            "Un lote es todo `entra` o todo `sale`. Confirmada, no se edita ni se anula.",
+            "El stock sigue siendo `SUM(entra) − SUM(sale)` sobre `movimientos`; la orden solo agrupa.",
+            "",
+            "Cada línea lleva `producto_id` (categoría del producto) **o** `categoria` sin producto.",
+            "Foto del lote opcional (misma regla que foto de producto: jpeg/png/webp, 8–800_000 bytes).",
+            "",
+            "Rate limit: el de movimientos (60 POST / minuto / IP).",
+            "Reenvío con la misma `idempotency_key` → 200 y la orden ya creada (sin reescribir foto).",
+          ].join("\n"),
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: [
+                    "tipo",
+                    "abierta_at",
+                    "dia",
+                    "lineas",
+                    "idempotency_key",
+                  ],
+                  properties: {
+                    tipo: { type: "string", enum: ["entra", "sale"] },
+                    abierta_at: {
+                      type: "string",
+                      description:
+                        "ISO-8601 parseable. Instantánea en que se abrió el panel del lote (UTC).",
+                      example: "2026-08-17T18:12:00.000Z",
+                    },
+                    dia: {
+                      type: "string",
+                      description:
+                        "Día civil del teléfono al abrir (`YYYY-MM-DD`). Obligatorio.",
+                      example: "2026-08-17",
+                    },
+                    nota: {
+                      type: "string",
+                      maxLength: 200,
+                      nullable: true,
+                    },
+                    lineas: {
+                      type: "array",
+                      minItems: 1,
+                      maxItems: 30,
+                      items: {
+                        type: "object",
+                        required: ["cantidad"],
+                        properties: {
+                          producto_id: {
+                            type: "string",
+                            format: "uuid",
+                            description:
+                              "Producto del catálogo. Si viene, la categoría se toma de ahí.",
+                          },
+                          categoria: {
+                            type: "string",
+                            enum: categoriaEnum,
+                            description:
+                              "Solo si no hay `producto_id` (línea sin detalle de SKU).",
+                          },
+                          cantidad: {
+                            type: "integer",
+                            minimum: 1,
+                            maximum: 999,
+                          },
+                        },
+                      },
+                    },
+                    foto: {
+                      type: "object",
+                      nullable: true,
+                      description: "Foto opcional del lote (costal / mesa).",
+                      properties: {
+                        imagen_base64: { type: "string" },
+                        mime: {
+                          type: "string",
+                          enum: ["image/jpeg", "image/png", "image/webp"],
+                          default: "image/jpeg",
+                        },
+                      },
+                    },
+                    idempotency_key: { type: "string", format: "uuid" },
+                  },
+                },
+                example: {
+                  tipo: "entra",
+                  abierta_at: "2026-08-17T18:12:00.000Z",
+                  dia: "2026-08-17",
+                  nota: null,
+                  lineas: [
+                    {
+                      producto_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                      cantidad: 20,
+                    },
+                    { categoria: "higiene", cantidad: 8 },
+                  ],
+                  idempotency_key: "44444444-4444-4444-8444-444444444444",
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description:
+                "Lote creado. Misma forma base que un movimiento (`punto` + `aplicados` + `movimientos`) más `orden`.",
+              content: {
+                "application/json": {
+                  schema: {
+                    allOf: [
+                      puntoResumen,
+                      {
+                        type: "object",
+                        properties: {
+                          orden: orden,
+                          aplicados: { type: "array", items: movimiento },
+                          movimientos: { type: "array", items: movimiento },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            200: {
+              description: "Replay de la misma `idempotency_key`.",
+              content: {
+                "application/json": {
+                  schema: {
+                    allOf: [
+                      puntoResumen,
+                      {
+                        type: "object",
+                        properties: {
+                          orden: orden,
+                          aplicados: { type: "array", items: movimiento },
+                          movimientos: { type: "array", items: movimiento },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            400: {
+              description:
+                "`tipo_invalido` | `fecha_invalida` | `dia_invalido` | `items_invalidos` | `cantidad_invalida` | `categoria_invalida` | `producto_invalido` | `foto_invalida` | `foto_grande` | `sin_stock` | `idempotency_key_invalida`.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+            404: {
+              description: "El punto o un `producto_id` no existe.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+            429: {
+              description: "Rate limit (mismo contador que movimientos).",
+              content: { "application/json": { schema: errorSchema } },
+            },
+          },
+        },
+      },
+      "/api/ordenes/{id}": {
+        get: {
+          tags: ["Consulta"],
+          summary: "Ficha de una orden (lote)",
+          operationId: "getOrden",
+          description:
+            "Cabecera del lote + líneas (categoría, producto si hay, cantidad, foto de catálogo) + URL de la foto del lote.",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Ficha completa del lote.",
+              content: {
+                "application/json": {
+                  schema: orden,
+                  example: {
+                    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                    punto_id: "de854ab2-3796-4a17-8784-b852accd5334",
+                    tipo: "entra",
+                    abierta_at: "2026-08-17T18:12:00.000Z",
+                    dia: "2026-08-17",
+                    cerrada_at: "2026-08-17 18:15:02",
+                    nota: null,
+                    foto: "/api/ordenes/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/foto",
+                    lineas: [
+                      {
+                        categoria: "ninos",
+                        etiqueta: "Niños",
+                        producto_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                        nombre: "Pañales talla M",
+                        cantidad: 20,
+                        foto: "/api/productos/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/foto",
+                      },
+                      {
+                        categoria: "higiene",
+                        etiqueta: "Higiene",
+                        producto_id: null,
+                        nombre: null,
+                        cantidad: 8,
+                        foto: null,
+                      },
+                    ],
+                    unidades: 28,
+                  },
+                },
+              },
+            },
+            404: {
+              description: "`no_encontrado`.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+          },
+        },
+      },
+      "/api/ordenes/{id}/foto": {
+        get: {
+          tags: ["Consulta"],
+          summary: "Foto del lote",
+          operationId: "getOrdenFoto",
+          description:
+            "Imagen binaria del lote (`image/jpeg` | `image/png` | `image/webp`). Cache pública 1 día. 404 si la orden no tiene foto o no existe.",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Bytes de la imagen.",
+              content: {
+                "image/jpeg": { schema: { type: "string", format: "binary" } },
+                "image/png": { schema: { type: "string", format: "binary" } },
+                "image/webp": { schema: { type: "string", format: "binary" } },
+              },
+            },
+            404: {
+              description: "`no_encontrado`.",
+              content: { "application/json": { schema: errorSchema } },
+            },
+          },
+        },
+      },
     },
     components: {
       schemas: {
@@ -720,6 +1193,9 @@ export function buildOpenApi({ serverUrl }) {
         Punto: puntoResumen,
         Movimiento: movimiento,
         ItemInventario: itemInventario,
+        Orden: orden,
+        OrdenResumen: ordenResumen,
+        OrdenLinea: ordenLinea,
       },
     },
   };

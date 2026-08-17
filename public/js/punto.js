@@ -1,6 +1,9 @@
 import {
   getPunto,
   postMovimiento,
+  postOrden,
+  listOrdenes,
+  getOrden,
   interpretarVoz,
   listProductos,
   createProducto,
@@ -50,6 +53,26 @@ function mensajeMovimiento(tipo, cantidad, nombre, ajustado) {
   const what = nombre ? ` ${nombre}` : "";
   const extra = ajustado ? " Se ajustó a lo que había." : "";
   return `${verb} ${n}${what}.${extra}`;
+}
+
+function hoyLocal(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function readFileAsFoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const mime = file.type || "image/jpeg";
+      const imagen_base64 = String(reader.result).split(",")[1] || "";
+      resolve({ imagen_base64, mime });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function puntoId() {
@@ -203,7 +226,7 @@ function renderBodega(inventario, filtro, { onFilter, onAddInCat }) {
   }
 }
 
-function renderMovs(list, movimientos) {
+function renderMovs(list, movimientos, onOpenOrden) {
   list.replaceChildren();
   if (!movimientos || movimientos.length === 0) {
     const li = document.createElement("li");
@@ -223,6 +246,57 @@ function renderMovs(list, movimientos) {
     when.className = "meta";
     when.textContent = formatWhen(m.created_at);
     li.append(qty, when);
+    if (m.orden_id) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "orden-chip";
+      chip.textContent = `Lote ${formatWhen(m.orden_abierta_at)}`;
+      chip.addEventListener("click", () => onOpenOrden(m.orden_id));
+      li.append(chip);
+    }
+    list.append(li);
+  }
+}
+
+function renderOrdenes(list, ordenes, onOpenOrden) {
+  list.replaceChildren();
+  if (!ordenes || ordenes.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "Sin órdenes hoy.";
+    list.append(li);
+    return;
+  }
+  for (const o of ordenes) {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "orden-row";
+    const hora = document.createElement("span");
+    hora.className = "orden-row-hora";
+    hora.textContent = formatWhen(o.abierta_at);
+    const tipo = document.createElement("span");
+    tipo.className =
+      "orden-row-tipo " + (o.tipo === "sale" ? "qty-sale" : "qty-entra");
+    tipo.textContent = o.tipo === "sale" ? "Sale" : "Entra";
+    const resumen = document.createElement("span");
+    resumen.className = "orden-row-resumen";
+    const nItems = Number(o.lineas) || 0;
+    const nUnd = Number(o.unidades) || 0;
+    const itemsLabel = nItems === 1 ? "1 ítem" : `${nItems} ítems`;
+    const undLabel = nUnd === 1 ? "1 und." : `${nUnd} und.`;
+    resumen.textContent = `${itemsLabel} · ${undLabel}`;
+    btn.append(hora, tipo, resumen);
+    if (o.foto) {
+      const img = document.createElement("img");
+      img.src = o.foto;
+      img.alt = "";
+      img.className = "orden-row-foto";
+      img.addEventListener("error", () => img.remove());
+      btn.append(img);
+    }
+    btn.addEventListener("click", () => onOpenOrden(o.id));
+    li.append(btn);
     list.append(li);
   }
 }
@@ -288,16 +362,23 @@ async function main() {
   }
 
   let tipo = "entra";
+  let modo = "suelto";
   let filtroCat = null;
   let lastData = null;
   let categoriaActiva = null;
+  let loteDraft = null;
+  let loteEnviando = false;
   const toggle = qs("toggle");
   const cats = qs("cats");
   const panel = qs("productos");
   const lista = qs("productos-lista");
   const pStatus = qs("producto-status");
+  const acciones = qs("registrar-acciones");
   const registrarPanel = qs("registrar-panel");
   const btnRegistrar = qs("btn-registrar");
+  const lotePanel = qs("lote-panel");
+  const btnLote = qs("btn-lote");
+  const loteToggle = qs("lote-toggle");
 
   function paint(data) {
     lastData = data;
@@ -314,7 +395,91 @@ async function main() {
       },
       onAddInCat: openRegistrarOn,
     });
-    renderMovs(qs("movs"), data.movimientos);
+    renderMovs(qs("movs"), data.movimientos, openOrdenFicha);
+    loadOrdenes();
+  }
+
+  function hideOrdenFicha() {
+    qs("orden-ficha").hidden = true;
+    document.body.classList.remove("is-ficha-open");
+  }
+
+  function fillOrdenFicha(orden) {
+    qs("orden-ficha-hora").textContent = formatWhen(orden.abierta_at);
+    const tipoEl = qs("orden-ficha-tipo");
+    tipoEl.textContent = orden.tipo === "sale" ? "Sale" : "Entra";
+    tipoEl.className =
+      "orden-ficha-tipo " + (orden.tipo === "sale" ? "qty-sale" : "qty-entra");
+    const notaEl = qs("orden-ficha-nota");
+    if (orden.nota) {
+      notaEl.textContent = orden.nota;
+      notaEl.hidden = false;
+    } else {
+      notaEl.textContent = "";
+      notaEl.hidden = true;
+    }
+    const fotoEl = qs("orden-ficha-foto");
+    if (orden.foto) {
+      fotoEl.src = orden.foto;
+      fotoEl.hidden = false;
+    } else {
+      fotoEl.removeAttribute("src");
+      fotoEl.hidden = true;
+    }
+    const lineasEl = qs("orden-ficha-lineas");
+    lineasEl.replaceChildren();
+    for (const linea of orden.lineas || []) {
+      const li = document.createElement("li");
+      li.className = "lote-linea";
+      if (linea.foto) {
+        const img = document.createElement("img");
+        img.src = linea.foto;
+        img.alt = "";
+        img.className = "orden-ficha-linea-foto";
+        img.addEventListener("error", () => img.remove());
+        li.append(img);
+      }
+      const name = document.createElement("span");
+      name.className = "orden-ficha-linea-nombre";
+      name.textContent =
+        linea.nombre ||
+        linea.etiqueta ||
+        ETIQUETA[linea.categoria] ||
+        linea.categoria;
+      const qty = document.createElement("span");
+      qty.className = "orden-ficha-linea-qty";
+      qty.textContent = String(linea.cantidad);
+      li.append(name, qty);
+      lineasEl.append(li);
+    }
+    qs("orden-ficha").hidden = false;
+    document.body.classList.add("is-ficha-open");
+    qs("btn-orden-ficha-cerrar").focus();
+  }
+
+  async function openOrdenFicha(ordenId) {
+    try {
+      const orden = await getOrden(ordenId);
+      fillOrdenFicha(orden);
+    } catch (err) {
+      status.textContent = errorText(err);
+      status.classList.remove("is-ok");
+      status.classList.add("is-error");
+    }
+  }
+
+  async function loadOrdenes() {
+    const list = qs("ordenes-lista");
+    try {
+      const data = await listOrdenes(id, hoyLocal());
+      renderOrdenes(list, data.ordenes || [], openOrdenFicha);
+    } catch (err) {
+      list.replaceChildren();
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = errorText(err);
+      list.append(li);
+    }
   }
 
   function setTipo(next) {
@@ -326,20 +491,168 @@ async function main() {
       tipo === "sale" ? "Anotar salida" : "Anotar entrada";
   }
 
-  function setRegistrarOpen(open) {
-    registrarPanel.hidden = !open;
-    btnRegistrar.hidden = open;
-    btnRegistrar.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open) {
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      registrarPanel.scrollIntoView({
-        behavior: reduce ? "auto" : "smooth",
-        block: "start",
-      });
+  function scrollPanel(el) {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({
+      behavior: reduce ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+
+  function loteDirty() {
+    return Boolean(loteDraft && (loteDraft.lineas.length > 0 || loteDraft.fotoFile));
+  }
+
+  function mountPicker(host) {
+    for (const el of [qs("cats"), qs("productos"), qs("dictar-box")]) {
+      if (el) host.append(el);
     }
   }
 
+  function syncAcciones() {
+    const loteOpen = Boolean(loteDraft) && !lotePanel.hidden;
+    const regOpen = !registrarPanel.hidden;
+    btnRegistrar.hidden = loteOpen || regOpen;
+    btnLote.hidden = loteOpen;
+    acciones.hidden = btnRegistrar.hidden && btnLote.hidden;
+    btnRegistrar.setAttribute("aria-expanded", regOpen ? "true" : "false");
+    btnLote.setAttribute("aria-expanded", loteOpen ? "true" : "false");
+  }
+
+  function setRegistrarOpen(open) {
+    registrarPanel.hidden = !open;
+    if (open) lotePanel.hidden = true;
+    syncAcciones();
+    if (open) scrollPanel(registrarPanel);
+  }
+
+  function setLoteOpen(open) {
+    lotePanel.hidden = !open;
+    if (open) registrarPanel.hidden = true;
+    syncAcciones();
+    if (open) scrollPanel(lotePanel);
+  }
+
+  function setLoteTipo(next) {
+    if (!loteDraft) return;
+    loteDraft.tipo = next;
+    loteToggle.classList.toggle("is-sale", next === "sale");
+    qs("lote-entra").classList.toggle("is-on", next === "entra");
+    qs("lote-sale").classList.toggle("is-on", next === "sale");
+  }
+
+  function renderLoteLineas() {
+    const list = qs("lote-lineas");
+    list.replaceChildren();
+    if (!loteDraft || loteDraft.lineas.length === 0) {
+      const li = document.createElement("li");
+      li.className = "hint";
+      li.textContent = "Todavía no hay insumos en este lote.";
+      list.append(li);
+      return;
+    }
+    loteDraft.lineas.forEach((linea, index) => {
+      const li = document.createElement("li");
+      li.className = "revision-item lote-linea";
+      const qty = document.createElement("span");
+      qty.textContent = String(linea.cantidad);
+      const name = document.createElement("span");
+      name.textContent = linea.nombre;
+      const quitar = document.createElement("button");
+      quitar.type = "button";
+      quitar.className = "btn btn-quitar";
+      quitar.textContent = "Quitar";
+      quitar.addEventListener("click", () => {
+        loteDraft.lineas.splice(index, 1);
+        renderLoteLineas();
+      });
+      li.append(qty, name, quitar);
+      list.append(li);
+    });
+  }
+
+  function renderLoteFoto() {
+    const file = loteDraft && loteDraft.fotoFile;
+    const nombre = qs("lote-foto-nombre");
+    nombre.textContent = file ? file.name : "";
+    nombre.hidden = !file;
+    qs("btn-lote-quitar-foto").hidden = !file;
+  }
+
+  function addLinea({ producto_id, categoria, nombre, cantidad }) {
+    if (!loteDraft) return;
+    const n = Number(cantidad);
+    if (!Number.isInteger(n) || n < 1) return;
+    const slug = categoria || categoriaActiva;
+    const existing = loteDraft.lineas.find((l) =>
+      producto_id
+        ? l.producto_id === producto_id
+        : !l.producto_id && l.categoria === slug,
+    );
+    if (existing) {
+      existing.cantidad = Math.min(999, existing.cantidad + n);
+    } else if (loteDraft.lineas.length >= 30) {
+      status.textContent = "El lote ya tiene 30 insumos.";
+      status.classList.add("is-error");
+      return;
+    } else {
+      loteDraft.lineas.push({
+        producto_id: producto_id || undefined,
+        categoria: slug,
+        nombre:
+          nombre || ETIQUETA[slug] || slug || "Insumo",
+        cantidad: Math.min(999, n),
+      });
+    }
+    renderLoteLineas();
+  }
+
+  function resetLote() {
+    modo = "suelto";
+    loteDraft = null;
+    loteEnviando = false;
+    qs("lote-foto").value = "";
+    qs("lote-foto-nombre").textContent = "";
+    qs("btn-lote-quitar-foto").hidden = true;
+    qs("revision-guardar").textContent = "Confirmar e ingresar";
+    mountPicker(registrarPanel);
+    setLoteOpen(false);
+  }
+
+  function discardLoteIfNeeded() {
+    if (loteEnviando) return false;
+    if (!loteDraft) return true;
+    if (loteDirty() && !confirm("¿Descartar este lote?")) return false;
+    resetLote();
+    return true;
+  }
+
+  function openLote() {
+    if (loteDraft) {
+      setLoteOpen(true);
+      return;
+    }
+    const abiertaAt = new Date();
+    modo = "lote";
+    loteDraft = {
+      tipo: "entra",
+      abiertaAt,
+      dia: hoyLocal(abiertaAt),
+      lineas: [],
+      fotoFile: null,
+      idempotency_key: newKey(),
+    };
+    qs("lote-hora").textContent = `Lote de las ${formatWhen(abiertaAt.toISOString())}`;
+    qs("revision-guardar").textContent = "Agregar al lote";
+    setLoteTipo("entra");
+    renderLoteLineas();
+    renderLoteFoto();
+    mountPicker(qs("lote-picker"));
+    setLoteOpen(true);
+  }
+
   function openRegistrarOn(slug, label) {
+    if (!discardLoteIfNeeded()) return;
     setRegistrarOpen(true);
     abrirCategoria(slug, label);
   }
@@ -376,6 +689,19 @@ async function main() {
     }
   }
 
+  function registrar(payload, nombre) {
+    if (modo === "lote") {
+      addLinea({
+        producto_id: payload.producto_id,
+        categoria: payload.categoria || categoriaActiva,
+        nombre,
+        cantidad: payload.cantidad,
+      });
+      return;
+    }
+    return send(payload, { nombre });
+  }
+
   async function abrirCategoria(slug, label) {
     categoriaActiva = slug;
     qs("productos-titulo").textContent = label;
@@ -409,17 +735,30 @@ async function main() {
         }
         btn.append(p.nombre);
         btn.addEventListener("click", () => {
-          send({ tipo, producto_id: p.id, cantidad: 1 }, { nombre: p.nombre });
+          registrar({ tipo, producto_id: p.id, cantidad: 1 }, p.nombre);
         });
         const plus5 = document.createElement("button");
         plus5.type = "button";
         plus5.className = "btn btn-plus";
         plus5.textContent = "+5";
         plus5.addEventListener("click", () => {
-          send({ tipo, producto_id: p.id, cantidad: 5 }, { nombre: p.nombre });
+          registrar({ tipo, producto_id: p.id, cantidad: 5 }, p.nombre);
         });
         row.append(btn, plus5);
         lista.append(row);
+      }
+      if (modo === "lote") {
+        const gen = document.createElement("button");
+        gen.type = "button";
+        gen.className = "btn btn-ghost";
+        gen.textContent = `+1 ${label} (sin detalle)`;
+        gen.addEventListener("click", () => {
+          registrar(
+            { tipo, categoria: slug, cantidad: 1 },
+            `${label} (sin detalle)`,
+          );
+        });
+        lista.append(gen);
       }
     } catch (err) {
       pStatus.textContent = errorText(err);
@@ -431,10 +770,101 @@ async function main() {
   qs("btn-sale").addEventListener("click", () => setTipo("sale"));
   setTipo("entra");
 
-  btnRegistrar.addEventListener("click", () => setRegistrarOpen(true));
+  btnRegistrar.addEventListener("click", () => {
+    if (!discardLoteIfNeeded()) return;
+    setRegistrarOpen(true);
+  });
   qs("btn-registrar-cerrar").addEventListener("click", () => {
     setRegistrarOpen(false);
   });
+
+  btnLote.addEventListener("click", () => {
+    setRegistrarOpen(false);
+    openLote();
+  });
+  qs("btn-lote-cerrar").addEventListener("click", () => {
+    discardLoteIfNeeded();
+  });
+  qs("btn-orden-ficha-cerrar").addEventListener("click", hideOrdenFicha);
+  qs("lote-entra").addEventListener("click", () => setLoteTipo("entra"));
+  qs("lote-sale").addEventListener("click", () => setLoteTipo("sale"));
+  qs("lote-foto").addEventListener("change", () => {
+    if (!loteDraft) return;
+    loteDraft.fotoFile = qs("lote-foto").files[0] || null;
+    renderLoteFoto();
+  });
+  qs("btn-lote-quitar-foto").addEventListener("click", () => {
+    if (!loteDraft) return;
+    loteDraft.fotoFile = null;
+    qs("lote-foto").value = "";
+    renderLoteFoto();
+  });
+  qs("btn-lote-confirmar").addEventListener("click", async () => {
+    if (!loteDraft || loteEnviando) return;
+    if (loteDraft.lineas.length === 0) {
+      status.textContent = "Agrega al menos un insumo";
+      status.classList.remove("is-ok");
+      status.classList.add("is-error");
+      return;
+    }
+    loteEnviando = true;
+    status.textContent = "Guardando…";
+    status.classList.remove("is-error", "is-ok");
+    const n = loteDraft.lineas.reduce((sum, l) => sum + l.cantidad, 0);
+    const when = formatWhen(loteDraft.abiertaAt.toISOString());
+    const tipoLote = loteDraft.tipo;
+    const fotoFile = loteDraft.fotoFile;
+    const body = {
+      tipo: tipoLote,
+      abierta_at: loteDraft.abiertaAt.toISOString(),
+      dia: loteDraft.dia,
+      lineas: loteDraft.lineas.map((l) =>
+        l.producto_id
+          ? { producto_id: l.producto_id, cantidad: l.cantidad }
+          : { categoria: l.categoria, cantidad: l.cantidad },
+      ),
+      idempotency_key: loteDraft.idempotency_key,
+    };
+    try {
+      if (fotoFile) {
+        body.foto = await readFileAsFoto(fotoFile);
+      }
+      const data = await postOrden(id, body);
+      const extra = (data.aplicados || []).some((a) => a.ajustado)
+        ? " Se ajustó a lo que había."
+        : "";
+      const verbo = tipoLote === "sale" ? "Salieron" : "Entraron";
+      const unidades =
+        data.orden && data.orden.unidades != null ? data.orden.unidades : n;
+      paint(data);
+      resetLote();
+      qs("ordenes-fold").open = true;
+      status.textContent = `${verbo} ${unidades} en el lote de las ${when}.${extra}`;
+      status.classList.add("is-ok");
+    } catch (err) {
+      status.textContent = errorText(err);
+      status.classList.add("is-error");
+    } finally {
+      loteEnviando = false;
+    }
+  });
+
+  window.addEventListener("beforeunload", (ev) => {
+    if (!loteEnviando && !loteDirty()) return;
+    ev.preventDefault();
+    ev.returnValue = "";
+  });
+  const navBack = document.querySelector(".nav-back");
+  if (navBack) {
+    navBack.addEventListener("click", (ev) => {
+      if (loteEnviando) {
+        ev.preventDefault();
+        return;
+      }
+      if (!loteDirty()) return;
+      if (!confirm("¿Descartar este lote?")) ev.preventDefault();
+    });
+  }
 
   for (const [slug, label] of CATEGORIAS) {
     const tile = document.createElement("button");
@@ -623,6 +1053,20 @@ async function main() {
     if (items.length === 0) {
       status.textContent = "No queda nada para guardar.";
       status.classList.add("is-error");
+      return;
+    }
+    if (modo === "lote") {
+      for (const it of items) {
+        addLinea({
+          categoria: it.categoria,
+          nombre: ETIQUETA[it.categoria] || it.categoria,
+          cantidad: it.cantidad,
+        });
+      }
+      draft.items = [];
+      draft.textos = [];
+      revision.hidden = true;
+      dictado.value = "";
       return;
     }
     const saved = await send({ tipo, items });

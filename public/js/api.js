@@ -79,3 +79,23 @@ export function postMovimiento(id, body) {
     body: JSON.stringify(body),
   }).then(parse);
 }
+
+export function postOrden(puntoId, body) {
+  return fetch(`/api/puntos/${encodeURIComponent(puntoId)}/ordenes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).then(parse);
+}
+
+export function listOrdenes(puntoId, dia) {
+  const qs = new URLSearchParams();
+  if (dia) qs.set("dia", dia);
+  return fetch(
+    `/api/puntos/${encodeURIComponent(puntoId)}/ordenes?${qs}`,
+  ).then(parse);
+}
+
+export function getOrden(id) {
+  return fetch(`/api/ordenes/${encodeURIComponent(id)}`).then(parse);
+}

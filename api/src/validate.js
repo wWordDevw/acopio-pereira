@@ -268,3 +268,65 @@ export function validateConsulta(params) {
     },
   };
 }
+
+const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function validateDia(raw) {
+  const dia = trimOrNull(raw);
+  if (!dia || !DIA_RE.test(dia)) return fail("dia_invalido");
+  const [y, m, d] = dia.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return fail("dia_invalido");
+  }
+  return { ok: true, value: dia };
+}
+
+export function validateOrden(body) {
+  const tipo = trimOrNull(body?.tipo);
+  if (tipo !== "entra" && tipo !== "sale") return fail("tipo_invalido");
+  const key = parseIdempotencyKey(body?.idempotency_key);
+  if (!key.ok) return key;
+  const dia = validateDia(body?.dia);
+  if (!dia.ok) return dia;
+  const abierta = trimOrNull(body?.abierta_at);
+  if (!abierta || Number.isNaN(Date.parse(abierta))) return fail("fecha_invalida");
+  const nota = parseNota(body?.nota);
+  if (!nota.ok) return nota;
+  if (!Array.isArray(body?.lineas) || body.lineas.length < 1 || body.lineas.length > 30) {
+    return fail("items_invalidos");
+  }
+  const lineas = [];
+  for (const raw of body.lineas) {
+    const cantidad = parseCantidad(raw?.cantidad);
+    if (!cantidad.ok) return cantidad;
+    const productoId = trimOrNull(raw?.producto_id);
+    const categoria = trimOrNull(raw?.categoria);
+    if (productoId) {
+      if (!UUID_RE.test(productoId)) return fail("producto_invalido");
+      lineas.push({ producto_id: productoId, categoria: null, cantidad: cantidad.value });
+    } else if (categoria && CATEGORIAS.includes(categoria)) {
+      lineas.push({ producto_id: null, categoria, cantidad: cantidad.value });
+    } else {
+      return fail("categoria_invalida");
+    }
+  }
+  let foto = null;
+  if (body?.foto) {
+    const parsed = validateFoto(body.foto);
+    if (!parsed.ok) return parsed;
+    foto = parsed.value;
+  }
+  return {
+    ok: true,
+    value: {
+      tipo,
+      abierta_at: abierta,
+      dia: dia.value,
+      nota: nota.value,
+      lineas,
+      foto,
+      idempotency_key: key.value,
+    },
+  };
+}
