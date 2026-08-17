@@ -3,8 +3,25 @@ import { ZONAS } from "./zonas.js";
 
 export const PUBLIC_WEB = "https://insumos.vowtech.lat";
 
+const EMOJI = {
+  comida: "🍚",
+  medicinas: "💊",
+  higiene: "🧼",
+  ninos: "👶",
+  cobijas: "🛏️",
+  agua: "💧",
+  ropa: "👕",
+  mascotas: "🐾",
+};
+
 function etiqueta(categoria) {
   return ETIQUETAS[categoria] ?? categoria ?? "insumos";
+}
+
+function etiquetaConEmoji(categoria) {
+  const etiq = etiqueta(categoria);
+  const emoji = EMOJI[categoria];
+  return emoji ? `${emoji} ${etiq}` : etiq;
 }
 
 function webBase(publicWeb) {
@@ -20,12 +37,12 @@ export function conPieMenu(text) {
 
 export function textoMenuInicio() {
   const cats = CATEGORIAS.filter((c) => c !== "otro");
-  const lineas = cats.map((c, i) => `${i + 1} ${etiqueta(c)}`);
+  const lineas = cats.map((c, i) => `${i + 1} ${etiquetaConEmoji(c)}`);
   return (
     "Puedo decirte qué hay y a dónde ir.\n" +
     "Escribe el número o el insumo y el barrio (ej: cobijas en Cuba).\n" +
     "\n" +
-    [...lineas, `${cats.length + 1} Mapa`, "0 Menú"].join("\n")
+    [...lineas, `${cats.length + 1} 🗺️ Mapa`, "0 Menú"].join("\n")
   );
 }
 
@@ -40,7 +57,10 @@ export function textoPedirTexto() {
 
 /** Missing category. */
 export function textoPedirCategoria() {
-  return "¿Qué buscas? Comida, medicinas, higiene, niños, cobijas, agua, ropa o mascotas.";
+  return (
+    "¿Qué buscas?\n" +
+    "🍚 comida · 💊 medicinas · 🧼 higiene · 👶 niños · 🛏️ cobijas · 💧 agua · 👕 ropa · 🐾 mascotas"
+  );
 }
 
 /** Near-me without zone. */
@@ -65,9 +85,8 @@ export function textoApiCaida(publicWeb) {
 }
 
 export function textoMenuZona(categoria) {
-  const etiq = etiqueta(categoria);
   return (
-    `${etiq} — ¿dónde?\n` +
+    `${etiquetaConEmoji(categoria)} — ¿dónde?\n` +
     "\n" +
     "1 Ver todos\n" +
     "2 Elegir barrio\n" +

@@ -22,15 +22,15 @@ describe("plantilla", () => {
   it("ayuda is the numbered start menu", () => {
     const t = textoAyuda();
     assert.equal(t, textoMenuInicio());
-    assert.match(t, /^1 Comida$/m);
-    assert.match(t, /^2 Medicinas$/m);
-    assert.match(t, /^3 Higiene$/m);
-    assert.match(t, /^4 Niños$/m);
-    assert.match(t, /^5 Cobijas$/m);
-    assert.match(t, /^6 Agua$/m);
-    assert.match(t, /^7 Ropa$/m);
-    assert.match(t, /^8 Mascotas$/m);
-    assert.match(t, /^9 Mapa$/m);
+    assert.match(t, /^1 🍚 Comida$/m);
+    assert.match(t, /^2 💊 Medicinas$/m);
+    assert.match(t, /^3 🧼 Higiene$/m);
+    assert.match(t, /^4 👶 Niños$/m);
+    assert.match(t, /^5 🛏️ Cobijas$/m);
+    assert.match(t, /^6 💧 Agua$/m);
+    assert.match(t, /^7 👕 Ropa$/m);
+    assert.match(t, /^8 🐾 Mascotas$/m);
+    assert.match(t, /^9 🗺️ Mapa$/m);
     assert.match(t, /^0 Menú$/m);
     assert.doesNotMatch(t, /otro/i);
   });
@@ -75,7 +75,7 @@ describe("plantilla", () => {
 
   it("zona menu names the category", () => {
     const t = textoMenuZona("cobijas");
-    assert.match(t, /Cobijas — ¿dónde\?/);
+    assert.match(t, /🛏️ Cobijas — ¿dónde\?/);
     assert.match(t, /^1 Ver todos$/m);
     assert.match(t, /^2 Elegir barrio$/m);
     assert.match(t, /escribir el barrio/i);

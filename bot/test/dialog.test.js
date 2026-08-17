@@ -98,7 +98,7 @@ describe("dialog", () => {
     const { handleIncoming } = makeDialog();
     const r = await handleIncoming(incoming({ text: "hola", messageId: "hola-1" }));
     assert.equal(r.send, true);
-    assert.match(r.text, /^1 Comida$/m);
+    assert.match(r.text, /^1 🍚 Comida$/m);
     assert.match(r.text, /cobijas en Cuba/);
   });
 
@@ -173,7 +173,7 @@ describe("dialog", () => {
     const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
     await handleIncoming(incoming({ text: "hola", messageId: "m-h" }));
     const zona = await handleIncoming(incoming({ text: "5", messageId: "m-5" }));
-    assert.match(zona.text, /Cobijas — ¿dónde\?/);
+    assert.match(zona.text, /🛏️ Cobijas — ¿dónde\?/);
     const r = await handleIncoming(incoming({ text: "1", messageId: "m-1" }));
     assert.ok(urls.some((u) => u.includes("categoria=cobijas")));
     assert.ok(!urls.some((u) => /lat=/.test(u)));
@@ -198,7 +198,7 @@ describe("dialog", () => {
     const { handleIncoming } = makeDialog();
     await handleIncoming(incoming({ text: "dónde hay pañales", messageId: "r1" }));
     const r = await handleIncoming(incoming({ text: "0", messageId: "r0" }));
-    assert.match(r.text, /^1 Comida$/m);
+    assert.match(r.text, /^1 🍚 Comida$/m);
   });
 
   it("out-of-range number on inicio does not call API or LLM", async () => {
@@ -218,7 +218,7 @@ describe("dialog", () => {
     const r = await handleIncoming(incoming({ text: "99", messageId: "o2" }));
     assert.equal(llmCalls, 0);
     assert.equal(urls.length, 0);
-    assert.match(r.text, /^1 Comida$/m);
+    assert.match(r.text, /^1 🍚 Comida$/m);
   });
 
   it("zona screen accepts typed barrio Boston", async () => {

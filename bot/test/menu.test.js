@@ -44,7 +44,7 @@ describe("menu", () => {
     assert.equal(r.kind, "show");
     assert.equal(r.next, "zona");
     assert.equal(r.categoria, "cobijas");
-    assert.match(r.text, /Cobijas — ¿dónde\?/);
+    assert.match(r.text, /🛏️ Cobijas — ¿dónde\?/);
   });
 
   it("inicio 9 stays on inicio with mapa", () => {
@@ -63,7 +63,7 @@ describe("menu", () => {
     const r = resolveMenu({ pantalla: "inicio", n: 99, categoria: null });
     assert.equal(r.kind, "show");
     assert.equal(r.next, "inicio");
-    assert.match(r.text, /^1 Comida$/m);
+    assert.match(r.text, /^1 🍚 Comida$/m);
   });
 
   it("zona 1 consults without zone", () => {
@@ -94,6 +94,6 @@ describe("menu", () => {
     const r = resolveMenu({ pantalla: "barrios", n: 0, categoria: "agua" });
     assert.equal(r.next, "inicio");
     assert.equal(r.categoria, null);
-    assert.match(r.text, /^1 Comida$/m);
+    assert.match(r.text, /^1 🍚 Comida$/m);
   });
 });
