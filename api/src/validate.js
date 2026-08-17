@@ -98,10 +98,15 @@ export function validateMovimiento(body) {
       const cantidad = parseCantidad(raw?.cantidad);
       if (!cantidad.ok) return cantidad;
       const frase = trimOrNull(raw?.frase);
+      const productoId = trimOrNull(raw?.producto_id);
+      if (productoId && !UUID_RE.test(productoId)) {
+        return fail("producto_invalido");
+      }
       items.push({
         categoria,
         cantidad: cantidad.value,
         texto_original: frase && frase.length <= 80 ? frase : null,
+        producto_id: productoId,
       });
     }
     return {
@@ -133,6 +138,25 @@ export function validateMovimiento(body) {
     };
   }
 
+  const productoId = trimOrNull(body?.producto_id);
+  if (productoId) {
+    if (!UUID_RE.test(productoId)) return fail("producto_invalido");
+    const cantidad = parseCantidad(body?.cantidad ?? 1);
+    if (!cantidad.ok) return cantidad;
+    return {
+      ok: true,
+      value: {
+        tipo,
+        texto: null,
+        items: null,
+        categoria: null,
+        producto_id: productoId,
+        cantidad: cantidad.value,
+        idempotency_key: key.value,
+      },
+    };
+  }
+
   const categoria = trimOrNull(body?.categoria);
   if (!categoria || !CATEGORIAS.includes(categoria)) {
     return fail("categoria_invalida");
@@ -146,10 +170,36 @@ export function validateMovimiento(body) {
       texto: null,
       items: null,
       categoria,
+      producto_id: null,
       cantidad: cantidad.value,
       idempotency_key: key.value,
     },
   };
+}
+
+export function validateProducto(body) {
+  const nombre = trimOrNull(body?.nombre);
+  if (!nombre || nombre.length < 2 || nombre.length > 60) {
+    return fail("nombre_invalido");
+  }
+  if (hasForbiddenUrl(nombre)) return fail("url_no_permitida");
+  const categoria = trimOrNull(body?.categoria);
+  if (!categoria || !CATEGORIAS.includes(categoria)) {
+    return fail("categoria_invalida");
+  }
+  return { ok: true, value: { nombre, categoria } };
+}
+
+export function validateFoto(body) {
+  const mime = trimOrNull(body?.mime) || "image/jpeg";
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
+    return fail("foto_invalida");
+  }
+  const raw = trimOrNull(body?.imagen_base64);
+  if (!raw) return fail("foto_invalida");
+  const b64 = raw.replace(/^data:image\/[a-zA-Z+]+;base64,/, "");
+  if (b64.length > 1_200_000) return fail("foto_grande");
+  return { ok: true, value: { mime, imagen_base64: b64 } };
 }
 
 export function validateInterpretar(body) {

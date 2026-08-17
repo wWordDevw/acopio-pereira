@@ -67,6 +67,10 @@ export function errorText(err) {
     no_encontrado: "No encontramos ese punto.",
     error_red: "Sin red. Intenta de nuevo.",
     error_interno: "Falló el servidor. Intenta de nuevo.",
+    posible_duplicado: "Ese producto ya existe o se parece a uno. Elige el de la lista.",
+    foto_invalida: "La foto no se pudo leer. Usa jpg o png.",
+    foto_grande: "La foto es muy pesada. Prueba otra más liviana.",
+    producto_invalido: "Producto no válido.",
   };
   return map[code] || "No se pudo guardar. Intenta de nuevo.";
 }

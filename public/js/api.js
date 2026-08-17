@@ -38,6 +38,40 @@ export function interpretarVoz(texto) {
   }).then(parse);
 }
 
+export function listProductos({ categoria, q } = {}) {
+  const qs = new URLSearchParams();
+  if (categoria) qs.set("categoria", categoria);
+  if (q) qs.set("q", q);
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return fetch(`/api/productos${suffix}`).then(parse);
+}
+
+export function createProducto(body) {
+  return fetch("/api/productos", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.error || "error_red");
+      err.status = res.status;
+      err.code = data.error;
+      err.candidatos = data.candidatos || [];
+      throw err;
+    }
+    return data;
+  });
+}
+
+export function uploadFotoProducto(id, { imagen_base64, mime }) {
+  return fetch(`/api/productos/${encodeURIComponent(id)}/foto`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imagen_base64, mime }),
+  }).then(parse);
+}
+
 export function postMovimiento(id, body) {
   return fetch(`/api/puntos/${encodeURIComponent(id)}/movimientos`, {
     method: "POST",
