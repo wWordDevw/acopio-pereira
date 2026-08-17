@@ -1,4 +1,5 @@
 import { createServer as createHttpServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createDialog } from "./dialog.js";
@@ -25,6 +26,14 @@ function readBody(req) {
   });
 }
 
+function secretsMatch(expected, provided) {
+  if (typeof provided !== "string") return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 /**
  * @param {{
  *   dialog: { handleIncoming: Function },
@@ -32,6 +41,7 @@ function readBody(req) {
  *   wahaKey?: string,
  *   session: string,
  *   fetchImpl?: typeof fetch,
+ *   webhookSecret?: string,
  * }} opts
  */
 export function createBotServer({
@@ -40,6 +50,7 @@ export function createBotServer({
   wahaKey,
   session,
   fetchImpl,
+  webhookSecret,
 }) {
   return createHttpServer((req, res) => {
     handle(req, res).catch((err) => {
@@ -58,7 +69,19 @@ export function createBotServer({
       return;
     }
 
-    if (req.method === "POST" && url.pathname === "/webhook") {
+    const isWebhook =
+      req.method === "POST" &&
+      (url.pathname === "/webhook" || url.pathname === "/wa-hook");
+
+    if (isWebhook) {
+      if (webhookSecret) {
+        const provided = req.headers["x-webhook-secret"];
+        if (!secretsMatch(webhookSecret, provided)) {
+          json(res, 401, { error: "no_autorizado" });
+          return;
+        }
+      }
+
       let body;
       try {
         body = JSON.parse(await readBody(req));
@@ -100,7 +123,8 @@ export function createBotServer({
 
 /**
  * Wire LLM + dialog from env and listen.
- * PORT default 3001; WAHA_SESSION default `default`.
+ * PORT default 3001; WAHA_BASE default https://waha.vowtech.lat;
+ * WAHA_SESSION default `insumos`.
  * @param {{
  *   env?: NodeJS.ProcessEnv,
  *   port?: number,
@@ -120,10 +144,11 @@ export function listen(options = {}) {
   });
   const server = createBotServer({
     dialog,
-    wahaBase: env.WAHA_BASE,
+    wahaBase: env.WAHA_BASE || "https://waha.vowtech.lat",
     wahaKey: env.WAHA_API_KEY,
-    session: env.WAHA_SESSION || "default",
+    session: env.WAHA_SESSION || "insumos",
     fetchImpl,
+    webhookSecret: env.WEBHOOK_SECRET,
   });
   const port = Number(options.port ?? env.PORT ?? 3001);
   server.listen(port, options.host ?? "0.0.0.0");

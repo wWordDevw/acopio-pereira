@@ -52,7 +52,7 @@ function makeDialog() {
   });
 }
 
-async function startServer({ dialog, fetchImpl } = {}) {
+async function startServer({ dialog, fetchImpl, webhookSecret } = {}) {
   const sent = [];
   const wahaFetch =
     fetchImpl ??
@@ -75,6 +75,7 @@ async function startServer({ dialog, fetchImpl } = {}) {
     wahaKey: "test-key",
     session: "default",
     fetchImpl: wahaFetch,
+    webhookSecret,
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
@@ -256,6 +257,79 @@ describe("webhook server", () => {
       });
       assert.equal(res.status, 200);
       assert.deepEqual(await res.json(), { ok: true });
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("POST /wa-hook is accepted like /webhook", async () => {
+    const srv = await startServer();
+    try {
+      const res = await fetch(`${srv.base}/wa-hook`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(event),
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), { ok: true });
+      assert.equal(srv.sent.length, 1);
+      assert.equal(srv.sent[0].url, "http://waha:3000/api/sendText");
+      const body = JSON.parse(srv.sent[0].init.body);
+      assert.equal(body.chatId, "573001112233@c.us");
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("WEBHOOK_SECRET missing header is 401 no_autorizado", async () => {
+    const srv = await startServer({ webhookSecret: "s3cret" });
+    try {
+      const res = await fetch(`${srv.base}/webhook`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(event),
+      });
+      assert.equal(res.status, 401);
+      assert.deepEqual(await res.json(), { error: "no_autorizado" });
+      assert.equal(srv.sent.length, 0);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("WEBHOOK_SECRET wrong header is 401", async () => {
+    const srv = await startServer({ webhookSecret: "s3cret" });
+    try {
+      const res = await fetch(`${srv.base}/wa-hook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Webhook-Secret": "wrong",
+        },
+        body: JSON.stringify(event),
+      });
+      assert.equal(res.status, 401);
+      assert.deepEqual(await res.json(), { error: "no_autorizado" });
+      assert.equal(srv.sent.length, 0);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("WEBHOOK_SECRET matching header allows /wa-hook", async () => {
+    const srv = await startServer({ webhookSecret: "s3cret" });
+    try {
+      const res = await fetch(`${srv.base}/wa-hook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Webhook-Secret": "s3cret",
+        },
+        body: JSON.stringify(event),
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), { ok: true });
+      assert.equal(srv.sent.length, 1);
     } finally {
       await srv.close();
     }
