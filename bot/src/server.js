@@ -1,11 +1,9 @@
 import { createServer as createHttpServer } from "node:http";
-import { timingSafeEqual } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createDialog } from "./dialog.js";
 import { createLlm } from "./llm/router.js";
-import { sendText } from "./waha.js";
-import { normalizeWahaEvent } from "./webhook.js";
+import { createMessaging } from "./messaging/create.js";
 
 function json(res, status, body) {
   const payload = JSON.stringify(body);
@@ -26,32 +24,13 @@ function readBody(req) {
   });
 }
 
-function secretsMatch(expected, provided) {
-  if (typeof provided !== "string") return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
 /**
  * @param {{
  *   dialog: { handleIncoming: Function },
- *   wahaBase: string,
- *   wahaKey?: string,
- *   session: string,
- *   fetchImpl?: typeof fetch,
- *   webhookSecret?: string,
+ *   messaging: import("./messaging/port.js").Messaging,
  * }} opts
  */
-export function createBotServer({
-  dialog,
-  wahaBase,
-  wahaKey,
-  session,
-  fetchImpl,
-  webhookSecret,
-}) {
+export function createBotServer({ dialog, messaging }) {
   return createHttpServer((req, res) => {
     handle(req, res).catch((err) => {
       console.error("bot server error", err?.message);
@@ -65,47 +44,58 @@ export function createBotServer({
     const url = new URL(req.url || "/", "http://localhost");
 
     if (req.method === "GET" && url.pathname === "/salud") {
-      json(res, 200, { ok: true, waha: "unknown" });
+      json(res, 200, {
+        ok: true,
+        provider: messaging.name,
+        messaging: "ok",
+      });
       return;
     }
 
-    const isWebhook =
-      req.method === "POST" &&
-      (url.pathname === "/webhook" || url.pathname === "/wa-hook");
+    const isHookPath =
+      url.pathname === "/webhook" || url.pathname === "/wa-hook";
 
-    if (isWebhook) {
-      if (webhookSecret) {
-        const provided = req.headers["x-webhook-secret"];
-        if (!secretsMatch(webhookSecret, provided)) {
-          json(res, 401, { error: "no_autorizado" });
-          return;
-        }
+    if (req.method === "GET" && isHookPath) {
+      const verdict = messaging.verifyWebhook(url.searchParams);
+      if (verdict == null) {
+        json(res, 404, { error: "no_encontrado" });
+        return;
+      }
+      if (verdict.ok === true) {
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end(verdict.challenge);
+        return;
+      }
+      json(res, 403, { error: "no_autorizado" });
+      return;
+    }
+
+    if (req.method === "POST" && isHookPath) {
+      const rawBody = await readBody(req);
+      if (!messaging.verifySignature({ headers: req.headers, rawBody })) {
+        json(res, 401, { error: "no_autorizado" });
+        return;
       }
 
       let body;
       try {
-        body = JSON.parse(await readBody(req));
+        body = JSON.parse(rawBody);
       } catch {
         json(res, 400, { error: "json_invalido" });
         return;
       }
 
       try {
-        const msg = normalizeWahaEvent(body);
-        if (msg) {
+        for (const msg of messaging.parseIncoming(body)) {
           const result = await dialog.handleIncoming(msg);
           if (result?.send) {
             try {
-              await sendText({
-                wahaBase,
-                apiKey: wahaKey,
-                session,
-                chatId: msg.from,
+              await messaging.sendText({
+                to: msg.from,
                 text: result.text ?? "",
-                fetchImpl,
               });
             } catch (err) {
-              console.error("waha sendText failed", err?.message);
+              console.error("sendText failed", err?.message);
             }
           }
         }
@@ -122,9 +112,9 @@ export function createBotServer({
 }
 
 /**
- * Wire LLM + dialog from env and listen.
- * PORT default 3001; WAHA_BASE default https://waha.vowtech.lat.
- * WAHA_SESSION is required (Dokploy env). No session name is hardcoded.
+ * Wire LLM + dialog + messaging from env and listen.
+ * PORT default 3001. Provider via WHATSAPP_PROVIDER (default waha).
+ * WAHA_SESSION is required when provider is waha (Dokploy env).
  * @param {{
  *   env?: NodeJS.ProcessEnv,
  *   port?: number,
@@ -134,13 +124,8 @@ export function createBotServer({
  */
 export function listen(options = {}) {
   const env = options.env ?? process.env;
-  const session = String(env.WAHA_SESSION || "").trim();
-  if (!session) {
-    throw Object.assign(new Error("WAHA_SESSION is required"), {
-      code: "waha_session_missing",
-    });
-  }
   const fetchImpl = options.fetchImpl;
+  const messaging = createMessaging(env, { fetchImpl });
   const llm = createLlm(env, { fetchImpl });
   const dialog = createDialog({
     apiBase: env.API_BASE,
@@ -148,14 +133,7 @@ export function listen(options = {}) {
     llm,
     fetchImpl,
   });
-  const server = createBotServer({
-    dialog,
-    wahaBase: env.WAHA_BASE || "https://waha.vowtech.lat",
-    wahaKey: env.WAHA_API_KEY,
-    session,
-    fetchImpl,
-    webhookSecret: env.WEBHOOK_SECRET,
-  });
+  const server = createBotServer({ dialog, messaging });
   const port = Number(options.port ?? env.PORT ?? 3001);
   server.listen(port, options.host ?? "0.0.0.0");
   return server;

@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createDialog } from "../src/dialog.js";
 import { createBotServer, listen } from "../src/server.js";
-import { normalizeWahaEvent } from "../src/webhook.js";
+import { createWahaMessaging } from "../src/messaging/waha.js";
+import { createMetaMessaging } from "../src/messaging/meta.js";
 
 const event = {
   event: "message",
@@ -69,13 +70,16 @@ async function startServer({ dialog, fetchImpl, webhookSecret } = {}) {
         },
       };
     });
+  const messaging = createWahaMessaging({
+    wahaBase: "http://waha:3000",
+    apiKey: "test-key",
+    session: "default",
+    webhookSecret,
+    fetchImpl: wahaFetch,
+  });
   const server = createBotServer({
     dialog: dialog ?? makeDialog(),
-    wahaBase: "http://waha:3000",
-    wahaKey: "test-key",
-    session: "default",
-    fetchImpl: wahaFetch,
-    webhookSecret,
+    messaging,
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
@@ -91,77 +95,53 @@ async function startServer({ dialog, fetchImpl, webhookSecret } = {}) {
   };
 }
 
-describe("normalizeWahaEvent", () => {
-  it("maps fixture fields", () => {
-    const n = normalizeWahaEvent(event);
-    assert.deepEqual(n, {
-      from: "573001112233@c.us",
-      messageId: "true_57300@c.us_AAA",
-      text: "dónde hay comida",
-      hasMedia: false,
-      fromMe: false,
-      isGroup: false,
-    });
-  });
-
-  it("ignores message.any", () => {
-    assert.equal(normalizeWahaEvent({ ...event, event: "message.any" }), null);
-  });
-
-  it("returns null without payload or unknown event", () => {
-    assert.equal(normalizeWahaEvent({ event: "message" }), null);
-    assert.equal(normalizeWahaEvent({ event: "session.status", payload: {} }), null);
-    assert.equal(normalizeWahaEvent(null), null);
-  });
-
-  it("fromMe still returns object", () => {
-    const n = normalizeWahaEvent({
-      ...event,
-      payload: { ...event.payload, fromMe: true },
-    });
-    assert.equal(n.fromMe, true);
-    assert.equal(n.from, event.payload.from);
-  });
-
-  it("isGroup from @g.us or payload.isGroup", () => {
-    const byJid = normalizeWahaEvent({
-      ...event,
-      payload: { ...event.payload, from: "120363@g.us" },
-    });
-    assert.equal(byJid.isGroup, true);
-
-    const byFlag = normalizeWahaEvent({
-      ...event,
-      payload: { ...event.payload, isGroup: true },
-    });
-    assert.equal(byFlag.isGroup, true);
-  });
-
-  it("text from caption when no body; hasMedia from type", () => {
-    const n = normalizeWahaEvent({
-      event: "message",
-      payload: {
-        id: "media-1",
-        from: "573001112233@c.us",
-        fromMe: false,
-        caption: "cobijas",
-        type: "image",
-      },
-    });
-    assert.equal(n.text, "cobijas");
-    assert.equal(n.hasMedia, true);
-  });
-});
-
 describe("webhook server", () => {
-  it("GET /salud is 200 with waha unknown", async () => {
+  it("GET /salud is 200 with provider waha", async () => {
     const srv = await startServer();
     try {
       const res = await fetch(`${srv.base}/salud`);
       assert.equal(res.status, 200);
-      assert.deepEqual(await res.json(), { ok: true, waha: "unknown" });
+      assert.deepEqual(await res.json(), {
+        ok: true,
+        provider: "waha",
+        messaging: "ok",
+      });
     } finally {
       await srv.close();
+    }
+  });
+
+  it("GET /webhook is 404 under waha", async () => {
+    const srv = await startServer();
+    try {
+      const res = await fetch(`${srv.base}/webhook`);
+      assert.equal(res.status, 404);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("GET /wa-hook with meta verify succeeds", async () => {
+    const messaging = createMetaMessaging({
+      phoneNumberId: "1",
+      accessToken: "t",
+      verifyToken: "verify-me",
+      appSecret: "s",
+      fetchImpl: async () => ({ ok: true, status: 200 }),
+    });
+    const dialog = makeDialog();
+    const server = createBotServer({ dialog, messaging });
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address();
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:${port}/wa-hook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=99`,
+      );
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get("content-type")?.includes("text/plain"), true);
+      assert.equal(await res.text(), "99");
+    } finally {
+      await new Promise((r, j) => server.close((e) => (e ? j(e) : r())));
     }
   });
 
