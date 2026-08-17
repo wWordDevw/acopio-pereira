@@ -39,6 +39,14 @@ describe("server", () => {
     return { status: res.status, body: await res.json() };
   }
 
+  async function firstProducto(categoria) {
+    const res = await fetch(`${base}/api/productos?categoria=${categoria}`);
+    const data = await res.json();
+    const row = data.productos[0];
+    assert.ok(row, `seed product for ${categoria}`);
+    return row;
+  }
+
   it("salud is 200", async () => {
     const res = await fetch(`${base}/api/salud`);
     assert.equal(res.status, 200);
@@ -76,9 +84,10 @@ describe("server", () => {
       lng: -75.69,
       idempotency_key: KEY(2),
     });
+    const cobijas = await firstProducto("cobijas");
     const mov = await post(`/api/puntos/${created.body.id}/movimientos`, {
       tipo: "entra",
-      categoria: "cobijas",
+      producto_id: cobijas.id,
       cantidad: 10,
       idempotency_key: KEY(3),
     });
@@ -100,15 +109,16 @@ describe("server", () => {
       lng: -75.71,
       idempotency_key: KEY(4),
     });
+    const agua = await firstProducto("agua");
     await post(`/api/puntos/${created.body.id}/movimientos`, {
       tipo: "entra",
-      categoria: "agua",
+      producto_id: agua.id,
       cantidad: 4,
       idempotency_key: KEY(5),
     });
     const sale = await post(`/api/puntos/${created.body.id}/movimientos`, {
       tipo: "sale",
-      categoria: "agua",
+      producto_id: agua.id,
       cantidad: 10,
       idempotency_key: KEY(6),
     });
@@ -128,9 +138,10 @@ describe("server", () => {
       lng: -75.695,
       idempotency_key: KEY(7),
     });
+    const comida = await firstProducto("comida");
     const sale = await post(`/api/puntos/${created.body.id}/movimientos`, {
       tipo: "sale",
-      categoria: "comida",
+      producto_id: comida.id,
       cantidad: 1,
       idempotency_key: KEY(8),
     });
@@ -147,7 +158,7 @@ describe("server", () => {
     });
     const mov = await post(`/api/puntos/${created.body.id}/movimientos`, {
       tipo: "entra",
-      texto: "20 cobijas y 10 kits de aseo",
+      texto: "20 cobijas y 10 toallas",
       idempotency_key: KEY(10),
     });
     assert.equal(mov.status, 201);
@@ -175,9 +186,10 @@ describe("server", () => {
       lng: -75.696,
       idempotency_key: KEY(12),
     });
+    const agua = await firstProducto("agua");
     await post(`/api/puntos/${a.body.id}/movimientos`, {
       tipo: "entra",
-      categoria: "agua",
+      producto_id: agua.id,
       cantidad: 8,
       idempotency_key: KEY(13),
     });

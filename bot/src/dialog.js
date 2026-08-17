@@ -2,7 +2,12 @@ import { CATEGORIAS } from "../../api/src/categorias.js";
 import { interpretar } from "./interpretar.js";
 import { matchZona } from "./zonas.js";
 import { consultarPuntos } from "./consultar.js";
-import { isMenuHomeTrigger, parseMenuNumber, resolveMenu } from "./menu.js";
+import {
+  isMenuHomeTrigger,
+  parseMenuNumber,
+  resolveMenu,
+  listarAcopios,
+} from "./menu.js";
 import {
   textoAyuda,
   textoPedirTexto,
@@ -11,6 +16,7 @@ import {
   textoRespuesta,
   textoMenuInicio,
   textoMenuZona,
+  textoMenuAcopios,
 } from "./plantilla.js";
 
 const HOUR_MS = 3_600_000;
@@ -27,8 +33,9 @@ const LLM_SYSTEM =
   "Do not invent stock. Reply with JSON only.";
 
 function stockOf(punto, categoria) {
-  const item = (punto.inventario ?? []).find((x) => x.categoria === categoria);
-  return item?.stock ?? 0;
+  return (punto.inventario ?? [])
+    .filter((x) => x.categoria === categoria && x.producto_id)
+    .reduce((sum, x) => sum + (Number(x.stock) || 0), 0);
 }
 
 function parseLlmJson(text) {
@@ -68,7 +75,7 @@ export function createDialog({
   const seenIds = new Set();
   /** @type {Map<string, number[]>} */
   const byFrom = new Map();
-  /** @type {Map<string, { pantalla: "inicio"|"zona"|"barrios"|"resultados", categoria: string|null, zona: object|null, turno: number, actualizadoAt: number }>} */
+  /** @type {Map<string, { pantalla: "inicio"|"zona"|"barrios"|"acopios"|"resultados", categoria: string|null, zona: object|null, acopios?: Array, turno: number, actualizadoAt: number }>} */
   const pending = new Map();
 
   function countRecent(from, t) {
@@ -130,20 +137,22 @@ export function createDialog({
     return { send: true, text };
   }
 
-  async function consultarYResponder(from, t, { categoria, zona, zonaTexto }) {
+  async function consultarYResponder(from, t, { categoria, zona, zonaTexto, puntos: ya }) {
     try {
-      let puntos = await consultarPuntos({
-        apiBase,
-        categoria,
-        zona,
-        fetchImpl,
-      });
-      if (!zona) {
+      let puntos =
+        ya ??
+        (await consultarPuntos({
+          apiBase,
+          categoria,
+          zona,
+          fetchImpl,
+        }));
+      if (!zona && !ya) {
         puntos = [...puntos].sort(
           (a, b) => stockOf(b, categoria) - stockOf(a, categoria),
         );
       }
-      puntos = puntos.slice(0, 3);
+      if (!ya) puntos = puntos.slice(0, 3);
       pending.set(from, {
         pantalla: "resultados",
         categoria: null,
@@ -221,13 +230,15 @@ export function createDialog({
     const menuScreen =
       st?.pantalla === "inicio" ||
       st?.pantalla === "zona" ||
-      st?.pantalla === "barrios";
+      st?.pantalla === "barrios" ||
+      st?.pantalla === "acopios";
     if (menuScreen && n !== null) {
       const resolved = resolveMenu({
         pantalla: st.pantalla,
         n,
         categoria: st.categoria,
         publicWeb,
+        acopios: st.acopios ?? [],
       });
       if (resolved.kind === "consultar") {
         return consultarYResponder(from, t, {
@@ -236,10 +247,43 @@ export function createDialog({
           zonaTexto: resolved.zona?.nombre ?? null,
         });
       }
+      if (resolved.kind === "consultar_punto" && resolved.punto) {
+        return consultarYResponder(from, t, {
+          categoria: resolved.categoria,
+          zona: null,
+          zonaTexto: null,
+          puntos: [resolved.punto],
+        });
+      }
+      if (resolved.kind === "listar_acopios") {
+        try {
+          const todos = await consultarPuntos({
+            apiBase,
+            categoria: resolved.categoria,
+            fetchImpl,
+          });
+          const acopios = listarAcopios(todos).slice(0, 20);
+          pending.set(from, {
+            pantalla: acopios.length > 0 ? "acopios" : "zona",
+            categoria: resolved.categoria ?? null,
+            zona: null,
+            acopios,
+            turno: st.turno,
+            actualizadoAt: t,
+          });
+          return { send: true, text: textoMenuAcopios(acopios, resolved.categoria) };
+        } catch (err) {
+          if (err?.code === "api_error") {
+            return { send: true, text: textoApiCaida(publicWeb) };
+          }
+          throw err;
+        }
+      }
       pending.set(from, {
         pantalla: resolved.next,
         categoria: resolved.categoria ?? null,
         zona: resolved.zona ?? null,
+        acopios: resolved.next === "acopios" ? (st.acopios ?? []) : [],
         turno: st.turno,
         actualizadoAt: t,
       });

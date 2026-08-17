@@ -83,6 +83,7 @@ export function errorText(err) {
     foto_invalida: "La foto no se pudo leer. Usa jpg o png.",
     foto_grande: "La foto es muy pesada. Prueba otra más liviana.",
     producto_invalido: "Producto no válido.",
+    producto_requerido: "Elige un producto de la lista.",
   };
   return map[code] || "No se pudo guardar. Intenta de nuevo.";
 }

@@ -20,6 +20,38 @@ function qs(id) {
   return document.getElementById(id);
 }
 
+let toastTimer = 0;
+
+function hideToast() {
+  const el = qs("toast");
+  if (!el) return;
+  el.hidden = true;
+  el.classList.remove("is-on", "is-error");
+  el.textContent = "";
+}
+
+function showToast(message, kind = "ok") {
+  const el = qs("toast");
+  if (!el) return;
+  window.clearTimeout(toastTimer);
+  el.textContent = message;
+  el.classList.toggle("is-error", kind === "error");
+  el.hidden = false;
+  el.classList.remove("is-on");
+  void el.offsetWidth;
+  el.classList.add("is-on");
+  toastTimer = window.setTimeout(hideToast, 3200);
+}
+
+function mensajeMovimiento(tipo, cantidad, nombre, ajustado) {
+  const n = Number(cantidad) || 0;
+  const verb =
+    tipo === "sale" ? (n === 1 ? "Salió" : "Salieron") : n === 1 ? "Entró" : "Entraron";
+  const what = nombre ? ` ${nombre}` : "";
+  const extra = ajustado ? " Se ajustó a lo que había." : "";
+  return `${verb} ${n}${what}.${extra}`;
+}
+
 function puntoId() {
   return new URLSearchParams(window.location.search).get("id") || "";
 }
@@ -248,6 +280,7 @@ function renderRevision(items, onChange) {
 async function main() {
   const id = puntoId();
   const status = qs("status");
+  qs("toast").addEventListener("click", hideToast);
   if (!id) {
     status.textContent = "Falta el punto.";
     status.classList.add("is-error");
@@ -311,8 +344,8 @@ async function main() {
     abrirCategoria(slug, label);
   }
 
-  async function send(payload) {
-    status.textContent = "Guardando…";
+  async function send(payload, { nombre } = {}) {
+    status.textContent = "";
     status.classList.remove("is-error", "is-ok");
     try {
       const data = await postMovimiento(id, {
@@ -320,15 +353,25 @@ async function main() {
         idempotency_key: newKey(),
       });
       paint(data);
-      const extra = (data.aplicados || []).some((a) => a.ajustado)
-        ? " Se ajustó a lo que había."
-        : "";
-      status.textContent = `Listo.${extra}`;
-      status.classList.add("is-ok");
+      const rows = data.aplicados || [];
+      const ajustado = rows.some((a) => a.ajustado);
+      let qty = payload.cantidad;
+      let label = nombre;
+      if (Array.isArray(payload.items) && payload.items.length > 0) {
+        qty = payload.items.reduce((sum, it) => sum + (it.cantidad || 0), 0);
+        label =
+          payload.items.length === 1
+            ? nombre || ETIQUETA[payload.items[0].categoria] || ""
+            : `${payload.items.length} insumos`;
+      } else if (!label && payload.categoria) {
+        label = ETIQUETA[payload.categoria] || payload.categoria;
+      } else if (!label && rows.length === 1) {
+        label = rows[0].etiqueta || "";
+      }
+      showToast(mensajeMovimiento(tipo, qty, label, ajustado), "ok");
       return data;
     } catch (err) {
-      status.textContent = errorText(err);
-      status.classList.add("is-error");
+      showToast(errorText(err), "error");
       return null;
     }
   }
@@ -366,26 +409,18 @@ async function main() {
         }
         btn.append(p.nombre);
         btn.addEventListener("click", () => {
-          send({ tipo, producto_id: p.id, cantidad: 1 });
+          send({ tipo, producto_id: p.id, cantidad: 1 }, { nombre: p.nombre });
         });
         const plus5 = document.createElement("button");
         plus5.type = "button";
         plus5.className = "btn btn-plus";
         plus5.textContent = "+5";
         plus5.addEventListener("click", () => {
-          send({ tipo, producto_id: p.id, cantidad: 5 });
+          send({ tipo, producto_id: p.id, cantidad: 5 }, { nombre: p.nombre });
         });
         row.append(btn, plus5);
         lista.append(row);
       }
-      const gen = document.createElement("button");
-      gen.type = "button";
-      gen.className = "btn btn-ghost";
-      gen.textContent = `+1 ${label} (sin detalle)`;
-      gen.addEventListener("click", () => {
-        send({ tipo, categoria: slug, cantidad: 1 });
-      });
-      lista.append(gen);
     } catch (err) {
       pStatus.textContent = errorText(err);
       pStatus.classList.add("is-error");
@@ -425,6 +460,43 @@ async function main() {
     }
   });
 
+  let fotoPreviewUrl = null;
+
+  function clearFotoPreview() {
+    if (fotoPreviewUrl) {
+      URL.revokeObjectURL(fotoPreviewUrl);
+      fotoPreviewUrl = null;
+    }
+    const img = qs("producto-foto-img");
+    img.removeAttribute("src");
+    qs("producto-foto-preview").hidden = true;
+    qs("producto-foto").value = "";
+    qs("producto-foto-label").textContent = "Foto";
+  }
+
+  qs("producto-foto").addEventListener("change", () => {
+    const file = qs("producto-foto").files[0];
+    if (!file || !String(file.type || "").startsWith("image/")) {
+      clearFotoPreview();
+      if (file) {
+        pStatus.textContent = "Esa no es una imagen. Usa jpg o png.";
+        pStatus.classList.add("is-error");
+      }
+      return;
+    }
+    if (fotoPreviewUrl) URL.revokeObjectURL(fotoPreviewUrl);
+    fotoPreviewUrl = URL.createObjectURL(file);
+    qs("producto-foto-img").src = fotoPreviewUrl;
+    qs("producto-foto-preview").hidden = false;
+    qs("producto-foto-label").textContent = "Cambiar";
+    pStatus.textContent = "";
+    pStatus.classList.remove("is-error", "is-ok");
+  });
+
+  qs("producto-foto-quitar").addEventListener("click", () => {
+    clearFotoPreview();
+  });
+
   qs("producto-nuevo").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     if (!categoriaActiva) return;
@@ -454,7 +526,7 @@ async function main() {
         await uploadFotoProducto(created.id, { imagen_base64, mime });
       }
       qs("producto-nombre").value = "";
-      qs("producto-foto").value = "";
+      clearFotoPreview();
       pStatus.textContent = "Producto listo. Tócalo para registrar.";
       pStatus.classList.add("is-ok");
       const label = CATEGORIAS.find((c) => c[0] === categoriaActiva)?.[1];

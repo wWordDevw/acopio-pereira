@@ -155,13 +155,20 @@ export function listPuntos(db) {
     .all();
   const stocks = db
     .prepare(
-      `select punto_id, categoria,
-              coalesce(sum(case when tipo = 'entra' then cantidad else 0 end), 0)
-            - coalesce(sum(case when tipo = 'sale' then cantidad else 0 end), 0)
+      `select m.punto_id,
+              m.categoria,
+              m.producto_id,
+              p.nombre as nombre,
+              p.slug as slug,
+              p.foto_path as foto_path,
+              coalesce(sum(case when m.tipo = 'entra' then m.cantidad else 0 end), 0)
+            - coalesce(sum(case when m.tipo = 'sale' then m.cantidad else 0 end), 0)
               as stock
-       from movimientos
-       group by punto_id, categoria
-       having stock > 0`
+       from movimientos m
+       left join productos p on p.id = m.producto_id
+       group by m.punto_id, m.categoria, m.producto_id
+       having stock > 0
+       order by m.punto_id, m.categoria, nombre`,
     )
     .all();
   const byPunto = new Map();
@@ -169,6 +176,10 @@ export function listPuntos(db) {
     if (!byPunto.has(s.punto_id)) byPunto.set(s.punto_id, []);
     byPunto.get(s.punto_id).push({
       categoria: s.categoria,
+      producto_id: s.producto_id,
+      nombre: s.nombre,
+      slug: s.slug,
+      foto_path: s.foto_path,
       stock: s.stock,
     });
   }

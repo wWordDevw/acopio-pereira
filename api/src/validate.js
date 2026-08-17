@@ -157,24 +157,7 @@ export function validateMovimiento(body) {
     };
   }
 
-  const categoria = trimOrNull(body?.categoria);
-  if (!categoria || !CATEGORIAS.includes(categoria)) {
-    return fail("categoria_invalida");
-  }
-  const cantidad = parseCantidad(body?.cantidad ?? 1);
-  if (!cantidad.ok) return cantidad;
-  return {
-    ok: true,
-    value: {
-      tipo,
-      texto: null,
-      items: null,
-      categoria,
-      producto_id: null,
-      cantidad: cantidad.value,
-      idempotency_key: key.value,
-    },
-  };
+  return fail("producto_requerido");
 }
 
 export function validateProducto(body) {

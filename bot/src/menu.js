@@ -4,6 +4,7 @@ import {
   textoMenuInicio,
   textoMenuZona,
   textoMenuBarrios,
+  textoMenuAcopios,
   textoMapa,
 } from "./plantilla.js";
 
@@ -19,11 +20,11 @@ function fold(s) {
 
 export function parseMenuNumber(text) {
   const t = String(text ?? "").trim();
-  if (!/^\d+$/.test(t)) return null;
-  return Number(t);
+  if (!/^\d+\.?$/.test(t)) return null;
+  return Number(t.replace(/\.$/, ""));
 }
 
-const HOME = new Set(["0", "menu", "hola", "hi", "buenas", "ayuda", "start"]);
+const HOME = new Set(["0", "0.", "menu", "hola", "hi", "buenas", "ayuda", "start"]);
 
 export function isMenuHomeTrigger(text) {
   return HOME.has(fold(text));
@@ -39,15 +40,30 @@ function zonaPublica(z) {
   };
 }
 
+export function esAcopio(punto) {
+  return /\bacopio\b/i.test(fold(punto?.nombre || ""));
+}
+
+export function listarAcopios(puntos) {
+  return (puntos ?? []).filter((p) => esAcopio(p));
+}
+
 /**
  * @param {{
  *   pantalla: string,
  *   n: number,
  *   categoria?: string|null,
  *   publicWeb?: string,
+ *   acopios?: Array<{ id: string, nombre: string }>,
  * }} opts
  */
-export function resolveMenu({ pantalla, n, categoria = null, publicWeb }) {
+export function resolveMenu({
+  pantalla,
+  n,
+  categoria = null,
+  publicWeb,
+  acopios = [],
+}) {
   if (n === 0) {
     return {
       kind: "show",
@@ -104,12 +120,40 @@ export function resolveMenu({ pantalla, n, categoria = null, publicWeb }) {
         text: textoMenuBarrios(),
       };
     }
+    if (n === 3) {
+      return {
+        kind: "listar_acopios",
+        next: "acopios",
+        categoria,
+        zona: null,
+        text: null,
+      };
+    }
     return {
       kind: "show",
       next: "zona",
       categoria,
       zona: null,
       text: textoMenuZona(categoria),
+    };
+  }
+  if (pantalla === "acopios") {
+    if (n >= 1 && n <= acopios.length) {
+      return {
+        kind: "consultar_punto",
+        next: "resultados",
+        categoria,
+        zona: null,
+        punto: acopios[n - 1],
+        text: null,
+      };
+    }
+    return {
+      kind: "show",
+      next: "acopios",
+      categoria,
+      zona: null,
+      text: textoMenuAcopios(acopios, categoria),
     };
   }
   if (pantalla === "barrios") {

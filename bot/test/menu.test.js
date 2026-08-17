@@ -26,6 +26,7 @@ describe("menu", () => {
     assert.equal(parseMenuNumber("5"), 5);
     assert.equal(parseMenuNumber(" 09 "), 9);
     assert.equal(parseMenuNumber("0"), 0);
+    assert.equal(parseMenuNumber("2."), 2);
     assert.equal(parseMenuNumber("1a"), null);
     assert.equal(parseMenuNumber("hola"), null);
     assert.equal(parseMenuNumber(""), null);
@@ -63,7 +64,7 @@ describe("menu", () => {
     const r = resolveMenu({ pantalla: "inicio", n: 99, categoria: null });
     assert.equal(r.kind, "show");
     assert.equal(r.next, "inicio");
-    assert.match(r.text, /^1 🍚 Comida$/m);
+    assert.match(r.text, /^1\. 🍚 Comida$/m);
   });
 
   it("zona 1 consults without zone", () => {
@@ -78,7 +79,29 @@ describe("menu", () => {
     const r = resolveMenu({ pantalla: "zona", n: 2, categoria: "cobijas" });
     assert.equal(r.kind, "show");
     assert.equal(r.next, "barrios");
-    assert.match(r.text, /2 Cuba/);
+    assert.match(r.text, /2\. Cuba/);
+  });
+
+  it("zona 3 asks to list acopios", () => {
+    const r = resolveMenu({ pantalla: "zona", n: 3, categoria: "medicinas" });
+    assert.equal(r.kind, "listar_acopios");
+    assert.equal(r.next, "acopios");
+    assert.equal(r.categoria, "medicinas");
+  });
+
+  it("acopios 1 is the first listed point", () => {
+    const r = resolveMenu({
+      pantalla: "acopios",
+      n: 1,
+      categoria: "medicinas",
+      acopios: [
+        { id: "tat", nombre: "Acopio · Tatama" },
+        { id: "utp", nombre: "Acopio · UTP" },
+      ],
+    });
+    assert.equal(r.kind, "consultar_punto");
+    assert.equal(r.punto.id, "tat");
+    assert.equal(r.categoria, "medicinas");
   });
 
   it("barrios 2 is Cuba", () => {
@@ -94,6 +117,6 @@ describe("menu", () => {
     const r = resolveMenu({ pantalla: "barrios", n: 0, categoria: "agua" });
     assert.equal(r.next, "inicio");
     assert.equal(r.categoria, null);
-    assert.match(r.text, /^1 🍚 Comida$/m);
+    assert.match(r.text, /^1\. 🍚 Comida$/m);
   });
 });

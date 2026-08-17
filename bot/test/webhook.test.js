@@ -60,7 +60,9 @@ const PUNTO = {
   nombre: "Albergue X",
   lat: 4.8,
   lng: -75.7,
-  inventario: [{ categoria: "comida", stock: 10 }],
+  inventario: [
+    { categoria: "comida", producto_id: "co1", nombre: "Arroz", stock: 10 },
+  ],
 };
 
 function disabledLlm() {

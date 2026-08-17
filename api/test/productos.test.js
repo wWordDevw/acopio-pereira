@@ -176,5 +176,15 @@ describe("productos api", () => {
     const line = body.inventario.find((i) => i.producto_id === pañales.id);
     assert.equal(line.stock, 12);
     assert.equal(line.nombre, "Pañales");
+
+    const listed = await fetch(
+      `${base}/api/consultar?categoria=ninos`,
+    ).then((r) => r.json());
+    const listedPunto = listed.puntos.find((p) => p.id === punto.id);
+    const listedLine = listedPunto.inventario.find(
+      (i) => i.producto_id === pañales.id,
+    );
+    assert.equal(listedLine.stock, 12);
+    assert.equal(listedLine.nombre, "Pañales");
   });
 });

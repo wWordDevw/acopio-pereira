@@ -45,15 +45,27 @@ describe("validatePunto", () => {
 });
 
 describe("validateMovimiento", () => {
-  it("accepts a button tap", () => {
+  it("accepts a product button tap", () => {
+    const r = validateMovimiento({
+      tipo: "entra",
+      producto_id: KEY,
+      cantidad: 5,
+      idempotency_key: KEY,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.value.cantidad, 5);
+    assert.equal(r.value.producto_id, KEY);
+  });
+
+  it("rejects a category tap without product", () => {
     const r = validateMovimiento({
       tipo: "entra",
       categoria: "agua",
       cantidad: 5,
       idempotency_key: KEY,
     });
-    assert.equal(r.ok, true);
-    assert.equal(r.value.cantidad, 5);
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "producto_requerido");
   });
 
   it("accepts voice text", () => {

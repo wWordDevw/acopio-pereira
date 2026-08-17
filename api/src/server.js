@@ -541,13 +541,28 @@ export function createServer({
 
         let items;
         if (parsed.value.items) {
-          items = parsed.value.items.map((it) => ({
-            tipo: parsed.value.tipo,
-            categoria: it.categoria,
-            cantidad: it.cantidad,
-            texto_original: it.texto_original,
-            producto_id: it.producto_id || null,
-          }));
+          const catalogo = listProductos(db);
+          items = [];
+          for (const it of parsed.value.items) {
+            const hit = it.producto_id
+              ? getProducto(db, it.producto_id)
+              : findProductoEnLista(
+                  catalogo,
+                  it.texto_original || it.frase,
+                  it.categoria,
+                );
+            if (!hit) {
+              json(res, 400, { error: "producto_requerido" });
+              return;
+            }
+            items.push({
+              tipo: parsed.value.tipo,
+              categoria: hit.categoria,
+              cantidad: it.cantidad,
+              texto_original: it.texto_original,
+              producto_id: hit.id,
+            });
+          }
         } else if (parsed.value.texto) {
           const parsedItems = parseVoz(parsed.value.texto);
           if (parsedItems.length === 0) {
@@ -555,20 +570,25 @@ export function createServer({
             return;
           }
           const catalogo = listProductos(db);
-          items = parsedItems.map((it) => {
+          items = [];
+          for (const it of parsedItems) {
             const hit = findProductoEnLista(
               catalogo,
               it.frase || it.texto_original,
               it.categoria,
             );
-            return {
+            if (!hit) {
+              json(res, 400, { error: "producto_requerido" });
+              return;
+            }
+            items.push({
               tipo: parsed.value.tipo,
-              categoria: it.categoria,
+              categoria: hit.categoria,
               cantidad: it.cantidad,
               texto_original: it.texto_original,
-              producto_id: hit?.id || null,
-            };
-          });
+              producto_id: hit.id,
+            });
+          }
         } else if (parsed.value.producto_id) {
           const prod = getProducto(db, parsed.value.producto_id);
           if (!prod) {
@@ -585,15 +605,8 @@ export function createServer({
             },
           ];
         } else {
-          items = [
-            {
-              tipo: parsed.value.tipo,
-              categoria: parsed.value.categoria,
-              cantidad: parsed.value.cantidad,
-              texto_original: null,
-              producto_id: null,
-            },
-          ];
+          json(res, 400, { error: "producto_requerido" });
+          return;
         }
 
         const result = insertMovimientos(db, {

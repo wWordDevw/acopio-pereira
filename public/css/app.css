@@ -413,12 +413,13 @@ path.yo-accuracy {
 
 .producto-nuevo {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
   margin: 0 0 0.5rem;
 }
 
 .producto-nuevo input[type="text"] {
+  grid-column: 1 / -1;
   width: 100%;
   min-height: 2.75rem;
   border: 2px solid var(--line);
@@ -431,6 +432,26 @@ path.yo-accuracy {
 
 .producto-foto-btn {
   margin: 0;
+}
+
+.producto-foto-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.producto-foto-preview[hidden] {
+  display: none;
+}
+
+.producto-foto-preview img {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  border: 2px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--paper);
 }
 
 .mov {
@@ -975,5 +996,54 @@ button.btn.btn-compact {
 @media (prefers-reduced-motion: reduce) {
   .registrar-panel {
     scroll-margin-top: 0;
+  }
+}
+
+.toast {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 30;
+  padding: 0.9rem 1rem;
+  border: 2px solid #0d3d24;
+  border-radius: 0.55rem;
+  background: var(--ok);
+  color: #f3fff6;
+  font: inherit;
+  font-size: 1.08rem;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.toast.is-error {
+  background: var(--sale);
+  color: #fff8f5;
+  border-color: #5a1408;
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+.toast.is-on {
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.55rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast.is-on {
+    animation: none;
   }
 }

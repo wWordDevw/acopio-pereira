@@ -12,9 +12,9 @@ const PUNTO = {
   lat: 4.8,
   lng: -75.7,
   inventario: [
-    { categoria: "ninos", stock: 10 },
-    { categoria: "agua", stock: 5 },
-    { categoria: "cobijas", stock: 40 },
+    { categoria: "ninos", producto_id: "n1", nombre: "Pañales", stock: 10 },
+    { categoria: "agua", producto_id: "a1", nombre: "Agua potable", stock: 5 },
+    { categoria: "cobijas", producto_id: "c1", nombre: "Cobijas", stock: 40 },
   ],
 };
 
@@ -98,7 +98,7 @@ describe("dialog", () => {
     const { handleIncoming } = makeDialog();
     const r = await handleIncoming(incoming({ text: "hola", messageId: "hola-1" }));
     assert.equal(r.send, true);
-    assert.match(r.text, /^1 🍚 Comida$/m);
+    assert.match(r.text, /^1\. 🍚 Comida$/m);
     assert.match(r.text, /cobijas en Cuba/);
   });
 
@@ -178,7 +178,7 @@ describe("dialog", () => {
     assert.ok(urls.some((u) => u.includes("categoria=cobijas")));
     assert.ok(!urls.some((u) => /lat=/.test(u)));
     assert.match(r.text, /Albergue X/);
-    assert.match(r.text, /\n\n0 Menú$/);
+    assert.match(r.text, /\n\n0\. Menú$/);
   });
 
   it("hola → 5 → 2 → 2 consults Cuba cobijas", async () => {
@@ -198,7 +198,7 @@ describe("dialog", () => {
     const { handleIncoming } = makeDialog();
     await handleIncoming(incoming({ text: "dónde hay pañales", messageId: "r1" }));
     const r = await handleIncoming(incoming({ text: "0", messageId: "r0" }));
-    assert.match(r.text, /^1 🍚 Comida$/m);
+    assert.match(r.text, /^1\. 🍚 Comida$/m);
   });
 
   it("out-of-range number on inicio does not call API or LLM", async () => {
@@ -218,7 +218,7 @@ describe("dialog", () => {
     const r = await handleIncoming(incoming({ text: "99", messageId: "o2" }));
     assert.equal(llmCalls, 0);
     assert.equal(urls.length, 0);
-    assert.match(r.text, /^1 🍚 Comida$/m);
+    assert.match(r.text, /^1\. 🍚 Comida$/m);
   });
 
   it("zona screen accepts typed barrio Boston", async () => {
@@ -231,6 +231,45 @@ describe("dialog", () => {
     assert.match(consult, /categoria=agua/);
     assert.match(consult, /lat=4\.808/);
     assert.match(r.text, /Albergue X/);
+  });
+
+  it("hola → 2 → 3 lists acopios and 1 shows that point", async () => {
+    const acopio = {
+      id: "dfa",
+      nombre: "Acopio · Tatama",
+      lat: 4.81061,
+      lng: -75.79814,
+      inventario: [
+        {
+          categoria: "medicinas",
+          producto_id: "ins-1",
+          nombre: "Insulina",
+          stock: 1,
+        },
+      ],
+    };
+    const urls = [];
+    const fetchImpl = async (url) => {
+      urls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { puntos: [acopio, PUNTO] };
+        },
+      };
+    };
+    const { handleIncoming } = makeDialog({ fetchImpl });
+    await handleIncoming(incoming({ text: "hola", messageId: "ac-h" }));
+    await handleIncoming(incoming({ text: "2", messageId: "ac-2" }));
+    const list = await handleIncoming(incoming({ text: "3", messageId: "ac-3" }));
+    assert.match(list.text, /Elige el acopio/);
+    assert.match(list.text, /1\. Acopio · Tatama/);
+    assert.doesNotMatch(list.text, /Albergue X/);
+    const r = await handleIncoming(incoming({ text: "1", messageId: "ac-1" }));
+    assert.match(r.text, /^1\. Acopio · Tatama$/m);
+    assert.match(r.text, /^Insulina — 1$/m);
+    assert.doesNotMatch(r.text, /medicinas$/im);
   });
 
   it("media keeps pending menu so 4 still works", async () => {
