@@ -256,6 +256,7 @@ export function createServer({
             puntos: "GET /api/puntos",
             punto: "GET /api/puntos/:id",
             categorias: "GET /api/categorias",
+            productos: "GET /api/productos",
             crear_punto: "POST /api/puntos",
             movimiento: "POST /api/puntos/:id/movimientos",
             salud: "GET /api/salud",
