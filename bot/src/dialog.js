@@ -1,10 +1,10 @@
 import { CATEGORIAS } from "../../api/src/categorias.js";
 import { interpretar } from "./interpretar.js";
 import { matchZona } from "./zonas.js";
-import { consultarPuntos } from "./consultar.js";
 import {
   isMenuHomeTrigger,
   parseMenuNumber,
+  parseMenuAtajo,
   resolveMenu,
   listarAcopios,
 } from "./menu.js";
@@ -34,7 +34,7 @@ const LLM_SYSTEM =
 
 function stockOf(punto, categoria) {
   return (punto.inventario ?? [])
-    .filter((x) => x.categoria === categoria && x.producto_id)
+    .filter((x) => x.categoria === categoria)
     .reduce((sum, x) => sum + (Number(x.stock) || 0), 0);
 }
 
@@ -58,19 +58,17 @@ function usableText(text) {
 
 /**
  * @param {{
- *   apiBase: string,
+ *   consultar: (q: { categoria?: string|null, zona?: object|null }) => Promise<Array>,
  *   publicWeb?: string,
  *   llm: { complete: Function },
  *   now?: () => number,
- *   fetchImpl?: typeof fetch,
  * }} opts
  */
 export function createDialog({
-  apiBase,
+  consultar,
   publicWeb,
   llm,
   now = () => Date.now(),
-  fetchImpl,
 }) {
   const seenIds = new Set();
   /** @type {Map<string, number[]>} */
@@ -141,11 +139,9 @@ export function createDialog({
     try {
       let puntos =
         ya ??
-        (await consultarPuntos({
-          apiBase,
+        (await consultar({
           categoria,
           zona,
-          fetchImpl,
         }));
       if (!zona && !ya) {
         puntos = [...puntos].sort(
@@ -226,7 +222,7 @@ export function createDialog({
       return showInicio(from, t, st);
     }
 
-    const n = parseMenuNumber(raw);
+    const n = parseMenuNumber(raw) ?? parseMenuAtajo(st?.pantalla, raw);
     const menuScreen =
       st?.pantalla === "inicio" ||
       st?.pantalla === "zona" ||
@@ -257,10 +253,9 @@ export function createDialog({
       }
       if (resolved.kind === "listar_acopios") {
         try {
-          const todos = await consultarPuntos({
-            apiBase,
+          const todos = await consultar({
             categoria: resolved.categoria,
-            fetchImpl,
+            zona: null,
           });
           const acopios = listarAcopios(todos).slice(0, 20);
           pending.set(from, {

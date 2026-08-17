@@ -118,6 +118,30 @@ describe("plantilla", () => {
     assert.equal(conPieMenu("Hola"), "Hola\n\n0. Menú");
   });
 
+  it("shows unnamed category stock when that is all the point has", () => {
+    const t = textoRespuesta({
+      categoria: "comida",
+      publicWeb: "https://insumos.vowtech.lat",
+      puntos: [
+        {
+          id: "tat",
+          nombre: "Acopio · Tatama",
+          lat: 4.81,
+          lng: -75.798,
+          inventario: [
+            { categoria: "comida", stock: 5 },
+            { categoria: "medicinas", stock: 5 },
+          ],
+        },
+      ],
+    });
+    assert.match(t, /^Comida:$/m);
+    assert.match(t, /^1\. Acopio · Tatama$/m);
+    assert.match(t, /^Comida — 5$/m);
+    assert.doesNotMatch(t, /No hay/i);
+    assert.doesNotMatch(t, /Medicinas/);
+  });
+
   it("lists named products without a category total or unnamed stock", () => {
     const t = textoRespuesta({
       categoria: "medicinas",

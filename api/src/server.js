@@ -7,7 +7,6 @@ import {
   openDb,
   insertPunto,
   getPunto,
-  listPuntos,
   listMovimientos,
   insertMovimientos,
   stockByPunto,
@@ -28,7 +27,7 @@ import {
 } from "./validate.js";
 import { parseVoz } from "./parse-voz.js";
 import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
-import { filtrarPuntos } from "./consultar.js";
+import { consultarInventario } from "./inventario.js";
 import { buildOpenApi } from "./openapi.js";
 import { swaggerHtml, swaggerInitJs } from "./swagger-html.js";
 import {
@@ -92,7 +91,7 @@ function queryFrom(url) {
 }
 
 function listFiltered(db, parsed) {
-  return filtrarPuntos(listPuntos(db), parsed);
+  return consultarInventario(db, parsed);
 }
 
 function readBody(req, limit = 16_000) {

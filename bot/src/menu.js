@@ -24,6 +24,27 @@ export function parseMenuNumber(text) {
   return Number(t.replace(/\.$/, ""));
 }
 
+const ZONA_ATAJO = new Map([
+  ["ver todos", 1],
+  ["ver todo", 1],
+  ["todos", 1],
+  ["todas", 1],
+  ["todo", 1],
+  ["elegir barrio", 2],
+  ["barrio", 2],
+  ["barrios", 2],
+  ["elegir acopio", 3],
+  ["acopio", 3],
+  ["acopios", 3],
+]);
+
+/** Label of a zona-menu option ("ver todos") → the same number as tapping it. */
+export function parseMenuAtajo(pantalla, text) {
+  if (pantalla !== "zona") return null;
+  const f = fold(text).replace(/^\d+\.\s+/, "");
+  return ZONA_ATAJO.get(f) ?? null;
+}
+
 const HOME = new Set(["0", "0.", "menu", "hola", "hi", "buenas", "ayuda", "start"]);
 
 export function isMenuHomeTrigger(text) {

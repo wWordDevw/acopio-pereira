@@ -50,8 +50,14 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: api/package-lock.json
 
-      # No package-lock / npm deps. Tests import api/src (parse-voz, categorias).
+      # Bot consultar reads SQLite via api/src (better-sqlite3).
+      - name: Install API native dep
+        working-directory: api
+        run: npm ci
+
       - name: Test
         working-directory: bot
         run: npm test

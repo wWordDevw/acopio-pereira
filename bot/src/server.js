@@ -2,8 +2,10 @@ import { createServer as createHttpServer } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createDialog } from "./dialog.js";
+import { createConsultar } from "./consultar.js";
 import { createLlm } from "./llm/router.js";
 import { createMessaging } from "./messaging/create.js";
+import { openDbReadOnly } from "../../api/src/db.js";
 
 function json(res, status, body) {
   const payload = JSON.stringify(body);
@@ -114,12 +116,16 @@ export function createBotServer({ dialog, messaging }) {
 /**
  * Wire LLM + dialog + messaging from env and listen.
  * PORT default 3001. Provider via WHATSAPP_PROVIDER (default waha).
+ * SQLITE_PATH is required (same file the API writes).
  * WAHA_SESSION is required when provider is waha (Dokploy env).
  * @param {{
  *   env?: NodeJS.ProcessEnv,
  *   port?: number,
  *   host?: string,
  *   fetchImpl?: typeof fetch,
+ *   sqlitePath?: string,
+ *   db?: object,
+ *   consultar?: Function,
  * }} [options]
  */
 export function listen(options = {}) {
@@ -127,11 +133,17 @@ export function listen(options = {}) {
   const fetchImpl = options.fetchImpl;
   const messaging = createMessaging(env, { fetchImpl });
   const llm = createLlm(env, { fetchImpl });
+  const sqlitePath = options.sqlitePath || env.SQLITE_PATH;
+  if (!sqlitePath) {
+    throw Object.assign(new Error("SQLITE_PATH is required"), {
+      code: "sqlite_path",
+    });
+  }
+  const db = options.db ?? openDbReadOnly(sqlitePath);
   const dialog = createDialog({
-    apiBase: env.API_BASE,
+    consultar: options.consultar ?? createConsultar(db),
     publicWeb: env.PUBLIC_WEB,
     llm,
-    fetchImpl,
   });
   const server = createBotServer({ dialog, messaging });
   const port = Number(options.port ?? env.PORT ?? 3001);

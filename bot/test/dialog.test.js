@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { createDialog } from "../src/dialog.js";
 import { textoPedirTexto, textoRateLimit, textoApiCaida } from "../src/plantilla.js";
 
-const API_BASE = "http://api:3000";
 const PUBLIC_WEB = "https://insumos.vowtech.lat";
 
 const PUNTO = {
@@ -26,16 +25,11 @@ function disabledLlm() {
   };
 }
 
-function fakeConsultar({ status = 200, urls } = {}) {
-  return async (url) => {
-    if (urls) urls.push(String(url));
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      async json() {
-        return { puntos: [PUNTO] };
-      },
-    };
+function fakeConsultar({ puntos = [PUNTO], error, calls } = {}) {
+  return async (query) => {
+    if (calls) calls.push(query);
+    if (error) throw error;
+    return puntos;
   };
 }
 
@@ -51,32 +45,35 @@ function incoming(overrides = {}) {
   };
 }
 
-function makeDialog({ fetchImpl, llm, now } = {}) {
+function makeDialog({ consultar, llm, now } = {}) {
   return createDialog({
-    apiBase: API_BASE,
+    consultar: consultar ?? fakeConsultar(),
     publicWeb: PUBLIC_WEB,
     llm: llm ?? disabledLlm(),
     now: now ?? (() => Date.now()),
-    fetchImpl: fetchImpl ?? fakeConsultar(),
   });
 }
 
 describe("dialog", () => {
   it("dónde hay pañales consults ninos and replies with maps + ficha", async () => {
-    const urls = [];
-    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    const calls = [];
+    const { handleIncoming } = makeDialog({
+      consultar: fakeConsultar({ calls }),
+    });
     const r = await handleIncoming(
       incoming({ text: "dónde hay pañales", messageId: "panales-1" }),
     );
     assert.equal(r.send, true);
-    assert.ok(urls.some((u) => u.includes("categoria=ninos")), urls.join(" | "));
+    assert.equal(calls[0].categoria, "ninos");
     assert.match(r.text, /Cómo llegar/);
     assert.match(r.text, /insumos\.vowtech\.lat\/punto\.html\?id=p1/);
   });
 
   it("necesito agua cerca then Cuba uses Cuba lat/lng", async () => {
-    const urls = [];
-    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    const calls = [];
+    const { handleIncoming } = makeDialog({
+      consultar: fakeConsultar({ calls }),
+    });
     const first = await handleIncoming(
       incoming({ text: "necesito agua cerca", messageId: "cerca-1" }),
     );
@@ -87,11 +84,10 @@ describe("dialog", () => {
       incoming({ text: "Cuba", messageId: "cerca-2" }),
     );
     assert.equal(second.send, true);
-    const consult = urls.find((u) => u.includes("/api/consultar"));
-    assert.ok(consult, "expected consultar URL");
-    assert.match(consult, /lat=4\.796/);
-    assert.match(consult, /lng=-75\.715/);
-    assert.match(consult, /categoria=agua/);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].categoria, "agua");
+    assert.equal(calls[0].zona.lat, 4.796);
+    assert.equal(calls[0].zona.lng, -75.715);
   });
 
   it("hola is numbered start menu", async () => {
@@ -135,7 +131,9 @@ describe("dialog", () => {
 
   it("consultar 500 includes mapa URL", async () => {
     const { handleIncoming } = makeDialog({
-      fetchImpl: fakeConsultar({ status: 500 }),
+      consultar: fakeConsultar({
+        error: Object.assign(new Error("api_error"), { code: "api_error" }),
+      }),
     });
     const r = await handleIncoming(
       incoming({ text: "dónde hay pañales", messageId: "down-1" }),
@@ -146,7 +144,7 @@ describe("dialog", () => {
   });
 
   it("xyzzy foobar + llm cobijas consults cobijas", async () => {
-    const urls = [];
+    const calls = [];
     const llm = {
       complete: async ({ messages, maxTokens }) => {
         assert.equal(maxTokens, 200);
@@ -158,39 +156,81 @@ describe("dialog", () => {
     };
     const { handleIncoming } = makeDialog({
       llm,
-      fetchImpl: fakeConsultar({ urls }),
+      consultar: fakeConsultar({ calls }),
     });
     const r = await handleIncoming(
       incoming({ text: "xyzzy foobar", messageId: "llm-1" }),
     );
     assert.equal(r.send, true);
-    assert.ok(urls.some((u) => u.includes("categoria=cobijas")), urls.join(" | "));
+    assert.equal(calls[0].categoria, "cobijas");
     assert.match(r.text, /Albergue X/);
   });
 
+  it("zona screen «ver todos» consults category without zone and skips LLM", async () => {
+    const calls = [];
+    let llmCalls = 0;
+    const llm = {
+      complete: async () => {
+        llmCalls += 1;
+        return {
+          text: '{"categoria":"comida","zona":"Cuba","intencion":"consultar"}',
+        };
+      },
+    };
+    const comida = {
+      ...PUNTO,
+      inventario: [
+        {
+          categoria: "comida",
+          producto_id: "ar-1",
+          nombre: "Arroz",
+          stock: 140,
+        },
+      ],
+    };
+    const { handleIncoming } = makeDialog({
+      llm,
+      consultar: fakeConsultar({ puntos: [comida], calls }),
+    });
+    await handleIncoming(incoming({ text: "hola", messageId: "vt-h" }));
+    const zona = await handleIncoming(incoming({ text: "1", messageId: "vt-1" }));
+    assert.match(zona.text, /🍚 Comida — ¿dónde\?/);
+    const r = await handleIncoming(
+      incoming({ text: "ver todos", messageId: "vt-all" }),
+    );
+    assert.equal(llmCalls, 0, "ver todos must not go to the LLM");
+    assert.equal(calls[0].categoria, "comida");
+    assert.equal(calls[0].zona, null);
+    assert.match(r.text, /Arroz — 140/);
+    assert.doesNotMatch(r.text, /No hay/i);
+  });
+
   it("menu path hola → 5 → 1 consults cobijas without zone", async () => {
-    const urls = [];
-    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    const calls = [];
+    const { handleIncoming } = makeDialog({
+      consultar: fakeConsultar({ calls }),
+    });
     await handleIncoming(incoming({ text: "hola", messageId: "m-h" }));
     const zona = await handleIncoming(incoming({ text: "5", messageId: "m-5" }));
     assert.match(zona.text, /🛏️ Cobijas — ¿dónde\?/);
     const r = await handleIncoming(incoming({ text: "1", messageId: "m-1" }));
-    assert.ok(urls.some((u) => u.includes("categoria=cobijas")));
-    assert.ok(!urls.some((u) => /lat=/.test(u)));
+    assert.equal(calls[0].categoria, "cobijas");
+    assert.equal(calls[0].zona, null);
     assert.match(r.text, /Albergue X/);
     assert.match(r.text, /\n\n0\. Menú$/);
   });
 
   it("hola → 5 → 2 → 2 consults Cuba cobijas", async () => {
-    const urls = [];
-    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    const calls = [];
+    const { handleIncoming } = makeDialog({
+      consultar: fakeConsultar({ calls }),
+    });
     await handleIncoming(incoming({ text: "hola", messageId: "b-h" }));
     await handleIncoming(incoming({ text: "5", messageId: "b-5" }));
     await handleIncoming(incoming({ text: "2", messageId: "b-2" }));
     const r = await handleIncoming(incoming({ text: "2", messageId: "b-cuba" }));
-    const consult = urls.find((u) => u.includes("/api/consultar"));
-    assert.match(consult, /categoria=cobijas/);
-    assert.match(consult, /lat=4\.796/);
+    assert.equal(calls[0].categoria, "cobijas");
+    assert.equal(calls[0].zona.lat, 4.796);
     assert.match(r.text, /Albergue X/);
   });
 
@@ -203,7 +243,7 @@ describe("dialog", () => {
 
   it("out-of-range number on inicio does not call API or LLM", async () => {
     let llmCalls = 0;
-    const urls = [];
+    const calls = [];
     const llm = {
       complete: async () => {
         llmCalls += 1;
@@ -212,24 +252,25 @@ describe("dialog", () => {
     };
     const { handleIncoming } = makeDialog({
       llm,
-      fetchImpl: fakeConsultar({ urls }),
+      consultar: fakeConsultar({ calls }),
     });
     await handleIncoming(incoming({ text: "hola", messageId: "o1" }));
     const r = await handleIncoming(incoming({ text: "99", messageId: "o2" }));
     assert.equal(llmCalls, 0);
-    assert.equal(urls.length, 0);
+    assert.equal(calls.length, 0);
     assert.match(r.text, /^1\. 🍚 Comida$/m);
   });
 
   it("zona screen accepts typed barrio Boston", async () => {
-    const urls = [];
-    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    const calls = [];
+    const { handleIncoming } = makeDialog({
+      consultar: fakeConsultar({ calls }),
+    });
     await handleIncoming(incoming({ text: "hola", messageId: "z1" }));
     await handleIncoming(incoming({ text: "6", messageId: "z2" }));
     const r = await handleIncoming(incoming({ text: "Boston", messageId: "z3" }));
-    const consult = urls.find((u) => u.includes("/api/consultar"));
-    assert.match(consult, /categoria=agua/);
-    assert.match(consult, /lat=4\.808/);
+    assert.equal(calls[0].categoria, "agua");
+    assert.equal(calls[0].zona.lat, 4.808);
     assert.match(r.text, /Albergue X/);
   });
 
@@ -248,18 +289,9 @@ describe("dialog", () => {
         },
       ],
     };
-    const urls = [];
-    const fetchImpl = async (url) => {
-      urls.push(String(url));
-      return {
-        ok: true,
-        status: 200,
-        async json() {
-          return { puntos: [acopio, PUNTO] };
-        },
-      };
-    };
-    const { handleIncoming } = makeDialog({ fetchImpl });
+    const { handleIncoming } = makeDialog({
+      consultar: fakeConsultar({ puntos: [acopio, PUNTO] }),
+    });
     await handleIncoming(incoming({ text: "hola", messageId: "ac-h" }));
     await handleIncoming(incoming({ text: "2", messageId: "ac-2" }));
     const list = await handleIncoming(incoming({ text: "3", messageId: "ac-3" }));

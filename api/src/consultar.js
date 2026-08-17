@@ -21,8 +21,7 @@ export function filtrarPuntos(puntos, query) {
   if (query.categoria) {
     rows = rows.filter((p) =>
       (p.inventario || []).some(
-        (i) =>
-          i.categoria === query.categoria && i.stock > 0 && i.producto_id,
+        (i) => i.categoria === query.categoria && i.stock > 0,
       ),
     );
   }

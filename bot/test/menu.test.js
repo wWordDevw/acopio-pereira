@@ -4,6 +4,7 @@ import { ZONAS } from "../src/zonas.js";
 import {
   MENU_CATEGORIAS,
   parseMenuNumber,
+  parseMenuAtajo,
   isMenuHomeTrigger,
   resolveMenu,
 } from "../src/menu.js";
@@ -65,6 +66,17 @@ describe("menu", () => {
     assert.equal(r.kind, "show");
     assert.equal(r.next, "inicio");
     assert.match(r.text, /^1\. 🍚 Comida$/m);
+  });
+
+  it("zona labels map to the same numbers as the menu", () => {
+    assert.equal(parseMenuAtajo("zona", "ver todos"), 1);
+    assert.equal(parseMenuAtajo("zona", "Ver todos"), 1);
+    assert.equal(parseMenuAtajo("zona", "todos"), 1);
+    assert.equal(parseMenuAtajo("zona", "1. Ver todos"), 1);
+    assert.equal(parseMenuAtajo("zona", "elegir barrio"), 2);
+    assert.equal(parseMenuAtajo("zona", "elegir acopio"), 3);
+    assert.equal(parseMenuAtajo("inicio", "ver todos"), null);
+    assert.equal(parseMenuAtajo("zona", "cuba"), null);
   });
 
   it("zona 1 consults without zone", () => {

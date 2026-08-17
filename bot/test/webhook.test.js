@@ -74,21 +74,14 @@ function disabledLlm() {
 }
 
 function fakeConsultar() {
-  return async () => ({
-    ok: true,
-    status: 200,
-    async json() {
-      return { puntos: [PUNTO] };
-    },
-  });
+  return async () => [PUNTO];
 }
 
 function makeDialog() {
   return createDialog({
-    apiBase: "http://api:3000",
+    consultar: fakeConsultar(),
     publicWeb: "https://insumos.vowtech.lat",
     llm: disabledLlm(),
-    fetchImpl: fakeConsultar(),
   });
 }
 

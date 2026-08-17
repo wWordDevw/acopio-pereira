@@ -61,6 +61,13 @@ export function openDb(path, options = {}) {
   return db;
 }
 
+/** Reader for the WhatsApp bot — no migrations, no seed. */
+export function openDbReadOnly(path) {
+  const db = new Database(path, { readonly: true, fileMustExist: true });
+  db.pragma("foreign_keys = ON");
+  return db;
+}
+
 export function findByIdempotency(db, table, key) {
   const allowed = { puntos: true, movimientos: true, productos: true };
   if (!allowed[table]) throw new Error("tabla_invalida");

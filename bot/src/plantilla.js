@@ -131,8 +131,16 @@ function itemsNombrados(inventario, categoria) {
   );
 }
 
-function nombreInsumo(item) {
-  return item.nombre || item.etiqueta || "Producto";
+function itemsDeCategoria(inventario, categoria) {
+  const nombrados = itemsNombrados(inventario, categoria);
+  if (nombrados.length > 0) return nombrados;
+  return (inventario ?? []).filter(
+    (x) => x.categoria === categoria && (Number(x.stock) || 0) > 0,
+  );
+}
+
+function nombreInsumo(item, categoria) {
+  return item.nombre || item.etiqueta || etiqueta(categoria);
 }
 
 /**
@@ -163,7 +171,7 @@ export function textoRespuesta({ categoria, zonaNombre, puntos, publicWeb }) {
   const visibles = (puntos ?? [])
     .map((p) => ({
       ...p,
-      items: itemsNombrados(p.inventario, categoria).sort(
+      items: itemsDeCategoria(p.inventario, categoria).sort(
         (a, b) => (Number(b.stock) || 0) - (Number(a.stock) || 0),
       ),
     }))
@@ -183,7 +191,7 @@ export function textoRespuesta({ categoria, zonaNombre, puntos, publicWeb }) {
     const n = i + 1;
     return [
       `${n}. ${p.nombre}`,
-      ...p.items.map((x) => `${nombreInsumo(x)} — ${x.stock}`),
+      ...p.items.map((x) => `${nombreInsumo(x, categoria)} — ${x.stock}`),
       `Cómo llegar: https://www.google.com/maps?q=${p.lat},${p.lng}`,
       `Ficha: ${base}/punto.html?id=${p.id}`,
     ].join("\n");
