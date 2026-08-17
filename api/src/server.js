@@ -151,7 +151,9 @@ function publicPunto(row, inventario = []) {
       etiqueta: i.nombre || ETIQUETAS[i.categoria] || i.categoria,
       nombre: i.nombre || null,
       producto_id: i.producto_id || null,
-      foto: i.producto_id ? `/api/productos/${i.producto_id}/foto` : null,
+      foto: i.producto_id && i.foto_path
+        ? `/api/productos/${i.producto_id}/foto`
+        : null,
       stock: i.stock,
     })),
     tiene_stock: inventario.some((i) => i.stock > 0),

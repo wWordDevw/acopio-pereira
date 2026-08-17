@@ -8,6 +8,8 @@ import {
 } from "./api.js";
 import {
   CATEGORIAS,
+  CAT_MARK,
+  ETIQUETA,
   newKey,
   formatWhen,
   errorText,
@@ -22,34 +24,150 @@ function puntoId() {
   return new URLSearchParams(window.location.search).get("id") || "";
 }
 
-function renderStock(list, inventario) {
-  list.replaceChildren();
-  if (!inventario || inventario.length === 0) {
-    const li = document.createElement("li");
-    li.className = "empty";
-    li.textContent = "Todavía no hay insumos registrados.";
-    list.append(li);
+function groupInventario(inventario) {
+  const byCat = new Map();
+  for (const item of inventario || []) {
+    const slug = item.categoria;
+    if (!byCat.has(slug)) byCat.set(slug, []);
+    byCat.get(slug).push(item);
+  }
+  return CATEGORIAS.filter(([slug]) => byCat.has(slug)).map(([slug, label]) => {
+    const items = byCat.get(slug).slice().sort((a, b) => b.stock - a.stock);
+    return {
+      slug,
+      label,
+      items,
+      total: items.reduce((sum, item) => sum + item.stock, 0),
+    };
+  });
+}
+
+function itemLabel(item) {
+  if (item.producto_id) return item.nombre || item.etiqueta || "Producto";
+  return "Sin detalle";
+}
+
+function renderBodega(inventario, filtro, { onFilter, onAddInCat }) {
+  const chips = qs("bodega-chips");
+  const aisles = qs("stock");
+  const totalEl = qs("bodega-total");
+  const groups = groupInventario(inventario);
+  const visible = filtro ? groups.filter((g) => g.slug === filtro) : groups;
+  const units = groups.reduce((sum, g) => sum + g.total, 0);
+
+  chips.replaceChildren();
+  aisles.replaceChildren();
+  chips.hidden = groups.length === 0;
+
+  if (groups.length === 0) {
+    totalEl.textContent = "";
+    const empty = document.createElement("div");
+    empty.className = "bodega-empty";
+    const lead = document.createElement("p");
+    lead.textContent = "Todavía no hay nada anotado.";
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "Si acaba de llegar una donación, regístrala.";
+    empty.append(lead, hint);
+    aisles.append(empty);
     return;
   }
-  for (const item of inventario) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "stock-row";
-    const name = document.createElement("span");
-    name.className = "stock-name";
-    if (item.foto && item.producto_id) {
-      const img = document.createElement("img");
-      img.src = item.foto;
-      img.alt = "";
-      img.className = "stock-foto";
-      name.append(img);
+
+  totalEl.textContent = units === 1 ? "1 unidad" : `${units} unidades`;
+
+  const allChip = document.createElement("button");
+  allChip.type = "button";
+  allChip.className = "chip" + (filtro ? "" : " is-on");
+  allChip.setAttribute("role", "tab");
+  allChip.setAttribute("aria-selected", filtro ? "false" : "true");
+  allChip.textContent = "Todos";
+  allChip.addEventListener("click", () => onFilter(null));
+  chips.append(allChip);
+
+  for (const group of groups) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip" + (filtro === group.slug ? " is-on" : "");
+    chip.dataset.cat = group.slug;
+    chip.setAttribute("role", "tab");
+    chip.setAttribute("aria-selected", filtro === group.slug ? "true" : "false");
+    const mark = document.createElement("span");
+    mark.className = "chip-mark";
+    mark.textContent = CAT_MARK[group.slug] || group.slug.slice(0, 2);
+    const text = document.createElement("span");
+    text.textContent = `${group.label} ${group.total}`;
+    chip.append(mark, text);
+    chip.addEventListener("click", () =>
+      onFilter(filtro === group.slug ? null : group.slug),
+    );
+    chips.append(chip);
+  }
+
+  if (filtro && visible.length === 0) {
+    onFilter(null);
+    return;
+  }
+
+  for (const group of visible) {
+    const aisle = document.createElement("section");
+    aisle.className = "aisle";
+    aisle.dataset.cat = group.slug;
+    aisle.id = `aisle-${group.slug}`;
+
+    const head = document.createElement("div");
+    head.className = "aisle-head";
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "aisle-title";
+    const mark = document.createElement("span");
+    mark.className = "cat-mark";
+    mark.textContent = CAT_MARK[group.slug] || group.slug.slice(0, 2);
+    const name = document.createElement("h3");
+    name.className = "aisle-name";
+    name.textContent = group.label;
+    titleWrap.append(mark, name);
+
+    const qty = document.createElement("p");
+    qty.className = "aisle-qty";
+    qty.setAttribute("aria-label", `${group.total} unidades`);
+    qty.textContent = String(group.total);
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "btn btn-ghost btn-aisle-add";
+    add.textContent = "Agregar";
+    add.addEventListener("click", () => onAddInCat(group.slug, group.label));
+
+    head.append(titleWrap, qty, add);
+
+    const bins = document.createElement("div");
+    bins.className = "bins";
+    if (group.items.length === 1) bins.classList.add("is-single");
+
+    for (const item of group.items) {
+      const bin = document.createElement("article");
+      bin.className = "bin";
+      if (item.foto && item.producto_id) {
+        const img = document.createElement("img");
+        img.src = item.foto;
+        img.alt = "";
+        img.className = "bin-foto";
+        img.addEventListener("error", () => img.remove());
+        bin.append(img);
+      }
+      const label = document.createElement("p");
+      label.className = "bin-name";
+      label.textContent = itemLabel(item);
+      const count = document.createElement("p");
+      count.className = "bin-qty";
+      count.setAttribute("aria-label", `${item.stock} unidades`);
+      count.textContent = String(item.stock);
+      bin.append(label, count);
+      bins.append(bin);
     }
-    name.append(item.nombre || item.etiqueta || item.categoria);
-    const qty = document.createElement("span");
-    qty.textContent = String(item.stock);
-    row.append(name, qty);
-    li.append(row);
-    list.append(li);
+
+    aisle.append(head, bins);
+    aisles.append(aisle);
   }
 }
 
@@ -67,44 +185,13 @@ function renderMovs(list, movimientos) {
     const sign = m.tipo === "entra" ? "+" : "−";
     const qty = document.createElement("span");
     qty.className = m.tipo === "entra" ? "qty-entra" : "qty-sale";
-    qty.textContent = `${sign}${m.cantidad} ${m.etiqueta || m.categoria}`;
+    const name = m.etiqueta || ETIQUETA[m.categoria] || m.categoria;
+    qty.textContent = `${sign}${m.cantidad} ${name}`;
     const when = document.createElement("div");
     when.className = "meta";
     when.textContent = formatWhen(m.created_at);
     li.append(qty, when);
     list.append(li);
-  }
-}
-
-function paint(data) {
-  qs("nombre").textContent = data.nombre;
-  qs("nota").textContent = data.nota || "";
-  qs("meta").textContent = data.nota
-    ? ""
-    : `Creado ${formatWhen(data.created_at)}`;
-  renderStock(qs("stock"), data.inventario);
-  renderMovs(qs("movs"), data.movimientos);
-}
-
-async function send(id, payload, status) {
-  status.textContent = "Guardando…";
-  status.classList.remove("is-error", "is-ok");
-  try {
-    const data = await postMovimiento(id, {
-      ...payload,
-      idempotency_key: newKey(),
-    });
-    paint(data);
-    const extra = (data.aplicados || []).some((a) => a.ajustado)
-      ? " Se ajustó a lo que había."
-      : "";
-    status.textContent = `Listo.${extra}`;
-    status.classList.add("is-ok");
-    return data;
-  } catch (err) {
-    status.textContent = errorText(err);
-    status.classList.add("is-error");
-    return null;
   }
 }
 
@@ -168,31 +255,93 @@ async function main() {
   }
 
   let tipo = "entra";
+  let filtroCat = null;
+  let lastData = null;
+  let categoriaActiva = null;
   const toggle = qs("toggle");
+  const cats = qs("cats");
+  const panel = qs("productos");
+  const lista = qs("productos-lista");
+  const pStatus = qs("producto-status");
+  const registrarPanel = qs("registrar-panel");
+  const btnRegistrar = qs("btn-registrar");
+
+  function paint(data) {
+    lastData = data;
+    qs("nombre").textContent = data.nombre;
+    document.title = `${data.nombre} — Insumos Pereira`;
+    qs("nota").textContent = data.nota || "";
+    qs("meta").textContent = data.nota
+      ? ""
+      : `Creado ${formatWhen(data.created_at)}`;
+    renderBodega(data.inventario, filtroCat, {
+      onFilter: (slug) => {
+        filtroCat = slug;
+        if (lastData) paint(lastData);
+      },
+      onAddInCat: openRegistrarOn,
+    });
+    renderMovs(qs("movs"), data.movimientos);
+  }
+
   function setTipo(next) {
     tipo = next;
     toggle.classList.toggle("is-sale", tipo === "sale");
     qs("btn-entra").classList.toggle("is-on", tipo === "entra");
     qs("btn-sale").classList.toggle("is-on", tipo === "sale");
+    qs("registrar-titulo").textContent =
+      tipo === "sale" ? "Anotar salida" : "Anotar entrada";
   }
-  qs("btn-entra").addEventListener("click", () => setTipo("entra"));
-  qs("btn-sale").addEventListener("click", () => setTipo("sale"));
-  setTipo("entra");
 
-  const cats = qs("cats");
-  const panel = qs("productos");
-  const lista = qs("productos-lista");
-  const pStatus = qs("producto-status");
-  let categoriaActiva = null;
+  function setRegistrarOpen(open) {
+    registrarPanel.hidden = !open;
+    btnRegistrar.hidden = open;
+    btnRegistrar.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      registrarPanel.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "start",
+      });
+    }
+  }
+
+  function openRegistrarOn(slug, label) {
+    setRegistrarOpen(true);
+    abrirCategoria(slug, label);
+  }
+
+  async function send(payload) {
+    status.textContent = "Guardando…";
+    status.classList.remove("is-error", "is-ok");
+    try {
+      const data = await postMovimiento(id, {
+        ...payload,
+        idempotency_key: newKey(),
+      });
+      paint(data);
+      const extra = (data.aplicados || []).some((a) => a.ajustado)
+        ? " Se ajustó a lo que había."
+        : "";
+      status.textContent = `Listo.${extra}`;
+      status.classList.add("is-ok");
+      return data;
+    } catch (err) {
+      status.textContent = errorText(err);
+      status.classList.add("is-error");
+      return null;
+    }
+  }
 
   async function abrirCategoria(slug, label) {
     categoriaActiva = slug;
     qs("productos-titulo").textContent = label;
     panel.hidden = false;
-    for (const btn of cats.querySelectorAll(".btn-cat")) {
+    for (const btn of cats.querySelectorAll(".cat-tile")) {
       btn.classList.toggle("is-on", btn.dataset.cat === slug);
     }
     pStatus.textContent = "";
+    pStatus.classList.remove("is-error", "is-ok");
     lista.replaceChildren();
     try {
       const data = await listProductos({ categoria: slug });
@@ -217,14 +366,14 @@ async function main() {
         }
         btn.append(p.nombre);
         btn.addEventListener("click", () => {
-          send(id, { tipo, producto_id: p.id, cantidad: 1 }, status);
+          send({ tipo, producto_id: p.id, cantidad: 1 });
         });
         const plus5 = document.createElement("button");
         plus5.type = "button";
         plus5.className = "btn btn-plus";
         plus5.textContent = "+5";
         plus5.addEventListener("click", () => {
-          send(id, { tipo, producto_id: p.id, cantidad: 5 }, status);
+          send({ tipo, producto_id: p.id, cantidad: 5 });
         });
         row.append(btn, plus5);
         lista.append(row);
@@ -234,7 +383,7 @@ async function main() {
       gen.className = "btn btn-ghost";
       gen.textContent = `+1 ${label} (sin detalle)`;
       gen.addEventListener("click", () => {
-        send(id, { tipo, categoria: slug, cantidad: 1 }, status);
+        send({ tipo, categoria: slug, cantidad: 1 });
       });
       lista.append(gen);
     } catch (err) {
@@ -243,27 +392,35 @@ async function main() {
     }
   }
 
+  qs("btn-entra").addEventListener("click", () => setTipo("entra"));
+  qs("btn-sale").addEventListener("click", () => setTipo("sale"));
+  setTipo("entra");
+
+  btnRegistrar.addEventListener("click", () => setRegistrarOpen(true));
+  qs("btn-registrar-cerrar").addEventListener("click", () => {
+    setRegistrarOpen(false);
+  });
+
   for (const [slug, label] of CATEGORIAS) {
-    const plus1 = document.createElement("button");
-    plus1.type = "button";
-    plus1.className = "btn btn-cat";
-    plus1.dataset.cat = slug;
-    plus1.textContent = label;
-    plus1.addEventListener("click", () => abrirCategoria(slug, label));
-    const plus5 = document.createElement("button");
-    plus5.type = "button";
-    plus5.className = "btn btn-plus";
-    plus5.textContent = "+5";
-    plus5.addEventListener("click", () => {
-      send(id, { tipo, categoria: slug, cantidad: 5 }, status);
-    });
-    cats.append(plus1, plus5);
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "cat-tile";
+    tile.dataset.cat = slug;
+    const mark = document.createElement("span");
+    mark.className = "cat-mark";
+    mark.textContent = CAT_MARK[slug] || slug.slice(0, 2);
+    const name = document.createElement("span");
+    name.className = "cat-tile-name";
+    name.textContent = label;
+    tile.append(mark, name);
+    tile.addEventListener("click", () => abrirCategoria(slug, label));
+    cats.append(tile);
   }
 
   qs("productos-cerrar").addEventListener("click", () => {
     panel.hidden = true;
     categoriaActiva = null;
-    for (const btn of cats.querySelectorAll(".btn-cat")) {
+    for (const btn of cats.querySelectorAll(".cat-tile")) {
       btn.classList.remove("is-on");
     }
   });
@@ -280,7 +437,10 @@ async function main() {
     pStatus.textContent = "Creando…";
     pStatus.classList.remove("is-error", "is-ok");
     try {
-      const created = await createProducto({ nombre, categoria: categoriaActiva });
+      const created = await createProducto({
+        nombre,
+        categoria: categoriaActiva,
+      });
       const file = qs("producto-foto").files[0];
       if (file) {
         const dataUrl = await new Promise((resolve, reject) => {
@@ -393,7 +553,7 @@ async function main() {
       status.classList.add("is-error");
       return;
     }
-    const saved = await send(id, { tipo, items }, status);
+    const saved = await send({ tipo, items });
     if (saved) {
       draft.items = [];
       draft.textos = [];

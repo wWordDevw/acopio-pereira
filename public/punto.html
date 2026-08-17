@@ -10,87 +10,128 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
   </head>
   <body>
-    <main class="wrap">
-      <a class="nav-back" href="/">← Mapa</a>
-      <p class="brand">Insumos Pereira</p>
-      <h1 id="nombre">Punto</h1>
-      <p id="nota" class="lede"></p>
-      <p id="meta" class="meta"></p>
-      <h2>Hay ahora</h2>
-      <ul id="stock" class="stock"></ul>
-      <div id="toggle" class="toggle">
-        <button type="button" class="btn is-on" id="btn-entra">Entra</button>
-        <button type="button" class="btn" id="btn-sale">Sale</button>
-      </div>
-      <p class="hint">
-        Elige una categoría (Niños, Mascotas…) para ver sus productos.
-        Un toque suma o resta 1. +5 al lado. O dicta: “20 mercados y 15 pañales”.
-      </p>
-      <div id="cats" class="cats"></div>
-      <section id="productos" class="productos" hidden>
-        <h2 id="productos-titulo">Productos</h2>
-        <p id="productos-hint" class="hint">
-          Toca un producto. +5 al lado. O crea uno si no está.
-        </p>
-        <div id="productos-lista" class="productos-lista"></div>
-        <form id="producto-nuevo" class="producto-nuevo">
-          <label class="sr-only" for="producto-nombre">Nuevo producto</label>
-          <input
-            id="producto-nombre"
-            type="text"
-            maxlength="60"
-            placeholder="Crear producto, ej. pasta"
-            autocomplete="off"
-          />
-          <label class="btn btn-ghost producto-foto-btn">
-            Foto
-            <input
-              id="producto-foto"
-              class="sr-only"
-              type="file"
-              accept="image/*"
-              capture="environment"
-            />
-          </label>
-          <button type="submit" class="btn">Crear</button>
-        </form>
-        <p id="producto-status" class="status"></p>
-        <button type="button" class="btn btn-ghost" id="productos-cerrar">
-          Cerrar lista
-        </button>
+    <main class="wrap wrap-punto">
+      <header class="punto-head">
+        <a class="nav-back" href="/">← Mapa</a>
+        <p class="brand">Insumos Pereira</p>
+        <h1 id="nombre">Punto</h1>
+        <p id="nota" class="lede"></p>
+        <p id="meta" class="meta"></p>
+      </header>
+
+      <section class="bodega" aria-labelledby="bodega-titulo">
+        <div class="bodega-head">
+          <h2 id="bodega-titulo">Hay aquí</h2>
+          <p id="bodega-total" class="bodega-total"></p>
+        </div>
+        <div
+          id="bodega-chips"
+          class="bodega-chips"
+          role="tablist"
+          aria-label="Filtrar por categoría"
+        ></div>
+        <div id="stock" class="aisles"></div>
       </section>
-      <button type="button" class="btn btn-primary btn-mic" id="mic">
-        Dictar insumos
-      </button>
-      <p id="mic-hint" class="hint"></p>
-      <label class="sr-only" for="dictado">Texto del dictado</label>
-      <textarea
-        id="dictado"
-        maxlength="500"
-        placeholder="O escribe aquí: 20 cobijas, 10 aguas, 5 arroces…"
-      ></textarea>
-      <button type="button" class="btn" id="btn-organizar">
-        Organizar este texto
-      </button>
-      <section id="revision" class="revision" hidden>
-        <h2>Revisa y edita</h2>
-        <p id="revision-texto" class="meta"></p>
-        <ul id="revision-lista" class="revision-lista"></ul>
-        <div class="stack">
-          <button type="button" class="btn btn-primary" id="revision-guardar">
-            Confirmar e ingresar
-          </button>
-          <button type="button" class="btn" id="revision-mas">
-            Dictar más
-          </button>
-          <button type="button" class="btn btn-ghost" id="revision-cancelar">
-            Cancelar
-          </button>
+
+      <p id="status" class="status"></p>
+
+      <section class="registrar" aria-labelledby="btn-registrar">
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="btn-registrar"
+          aria-expanded="false"
+          aria-controls="registrar-panel"
+        >
+          Registrar insumos
+        </button>
+        <div id="registrar-panel" class="registrar-panel" hidden>
+          <div class="registrar-head">
+            <h2 id="registrar-titulo">Anotar entrada</h2>
+            <button type="button" class="btn btn-ghost btn-compact" id="btn-registrar-cerrar">
+              Cerrar
+            </button>
+          </div>
+          <div id="toggle" class="toggle">
+            <button type="button" class="btn is-on" id="btn-entra">Entra</button>
+            <button type="button" class="btn" id="btn-sale">Sale</button>
+          </div>
+          <p class="hint">
+            Elige la categoría. Un toque suma o resta 1. +5 al lado del producto.
+            O dicta: “20 mercados y 15 pañales”.
+          </p>
+          <div id="cats" class="cat-tiles"></div>
+          <section id="productos" class="productos" hidden>
+            <h3 id="productos-titulo">Productos</h3>
+            <p id="productos-hint" class="hint">
+              Toca un producto. +5 al lado. O crea uno si no está.
+            </p>
+            <div id="productos-lista" class="productos-lista"></div>
+            <form id="producto-nuevo" class="producto-nuevo">
+              <label class="sr-only" for="producto-nombre">Nuevo producto</label>
+              <input
+                id="producto-nombre"
+                type="text"
+                maxlength="60"
+                placeholder="Crear producto, ej. pasta"
+                autocomplete="off"
+              />
+              <label class="btn btn-ghost producto-foto-btn">
+                Foto
+                <input
+                  id="producto-foto"
+                  class="sr-only"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                />
+              </label>
+              <button type="submit" class="btn">Crear</button>
+            </form>
+            <p id="producto-status" class="status"></p>
+            <button type="button" class="btn btn-ghost" id="productos-cerrar">
+              Cerrar lista
+            </button>
+          </section>
+          <div class="dictar-box">
+            <p class="dictar-kicker">O dicta una lista</p>
+            <button type="button" class="btn btn-primary btn-mic" id="mic">
+              Dictar insumos
+            </button>
+            <p id="mic-hint" class="hint"></p>
+            <label class="sr-only" for="dictado">Texto del dictado</label>
+            <textarea
+              id="dictado"
+              maxlength="500"
+              placeholder="O escribe aquí: 20 cobijas, 10 aguas, 5 arroces…"
+            ></textarea>
+            <button type="button" class="btn" id="btn-organizar">
+              Organizar este texto
+            </button>
+            <section id="revision" class="revision" hidden>
+              <h3>Revisa y edita</h3>
+              <p id="revision-texto" class="meta"></p>
+              <ul id="revision-lista" class="revision-lista"></ul>
+              <div class="stack">
+                <button type="button" class="btn btn-primary" id="revision-guardar">
+                  Confirmar e ingresar
+                </button>
+                <button type="button" class="btn" id="revision-mas">
+                  Dictar más
+                </button>
+                <button type="button" class="btn btn-ghost" id="revision-cancelar">
+                  Cancelar
+                </button>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
-      <p id="status" class="status"></p>
-      <h2>Últimos movimientos</h2>
-      <ul id="movs" class="mov"></ul>
+
+      <details class="movs-fold">
+        <summary>Últimos movimientos</summary>
+        <ul id="movs" class="mov"></ul>
+      </details>
     </main>
     <script type="module" src="/js/punto.js"></script>
   </body>

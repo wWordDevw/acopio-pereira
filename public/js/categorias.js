@@ -12,6 +12,18 @@ export const CATEGORIAS = [
 
 export const ETIQUETA = Object.fromEntries(CATEGORIAS);
 
+export const CAT_MARK = {
+  comida: "Co",
+  medicinas: "Md",
+  higiene: "Hg",
+  ninos: "Ni",
+  cobijas: "Cb",
+  agua: "Ag",
+  ropa: "Rp",
+  mascotas: "Ms",
+  otro: "Ot",
+};
+
 export const PEREIRA = { lat: 4.8133, lng: -75.6961 };
 
 export function newKey() {

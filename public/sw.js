@@ -1,4 +1,4 @@
-const CACHE = "insumos-v3";
+const CACHE = "insumos-v4";
 const SHELL = [
   "/",
   "/index.html",

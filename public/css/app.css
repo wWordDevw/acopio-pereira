@@ -98,12 +98,16 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+a.btn-primary,
+button.btn-primary,
 .btn-primary {
   background: var(--brand);
   color: var(--brand-ink);
   border-color: #7a260c;
 }
 
+a.btn-sale,
+button.btn-sale,
 .btn-sale {
   background: var(--sale);
   color: #fff8f5;
@@ -123,6 +127,7 @@ textarea:focus-visible {
   font-size: 1.2rem;
 }
 
+button.btn-mic.is-listening,
 .btn-mic.is-listening {
   background: var(--sale);
   color: #fff8f5;
@@ -567,4 +572,408 @@ path.yo-accuracy {
   background: #1f6b45;
   color: #f3fff6;
   border-color: #0d3d24;
+}
+
+/* Ficha de punto: mesas de acopio */
+.wrap-punto {
+  padding-top: 0.75rem;
+}
+
+.punto-head {
+  margin: 0 0 1rem;
+}
+
+.punto-head .nav-back {
+  margin-bottom: 0.35rem;
+}
+
+.punto-head h1 {
+  margin-bottom: 0.25rem;
+}
+
+.punto-head .lede {
+  margin-bottom: 0.25rem;
+}
+
+.bodega {
+  margin: 0 0 1.1rem;
+}
+
+.bodega-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.55rem;
+}
+
+.bodega-head h2 {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.bodega-total {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.bodega-chips {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0.15rem 0 0.55rem;
+  margin: 0 0 0.35rem;
+  background: var(--paper);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  margin: 0;
+  padding: 0.42rem 0.7rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.chip-mark,
+.cat-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.2rem;
+  border-radius: 0.28rem;
+  background: var(--aisle, var(--brand));
+  color: #fffaf3;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chip.is-on {
+  background: var(--aisle, var(--brand));
+  color: #fffaf3;
+  border-color: var(--ink);
+}
+
+.chip.is-on .chip-mark {
+  background: #fffaf3;
+  color: var(--ink);
+}
+
+.aisles {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.aisle {
+  --aisle: var(--muted);
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-left-width: 0.55rem;
+  border-left-color: var(--aisle);
+  border-radius: 0.45rem;
+  padding: 0.65rem 0.7rem 0.75rem;
+}
+
+.aisle-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  margin: 0 0 0.55rem;
+}
+
+.aisle-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.aisle-name {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.aisle-qty {
+  margin: 0;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+button.btn.btn-aisle-add,
+button.btn.btn-compact {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+.bins {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.bins.is-single {
+  grid-template-columns: 1fr;
+}
+
+.bin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 4.1rem;
+  padding: 0.5rem 0.55rem;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 0.35rem;
+}
+
+.bin-foto {
+  width: 100%;
+  height: 4.2rem;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  border: 1px solid var(--line);
+  margin: 0 0 0.25rem;
+}
+
+.bin-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.bin-qty {
+  margin: 0;
+  margin-top: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.bodega-empty {
+  padding: 1.1rem 0.85rem;
+  background: var(--card);
+  border: 2px dashed var(--line);
+  border-radius: 0.45rem;
+}
+
+.bodega-empty p {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.bodega-empty .hint {
+  margin: 0;
+  font-weight: 400;
+}
+
+.registrar {
+  margin: 0 0 1.2rem;
+}
+
+.registrar-panel {
+  margin: 0.7rem 0 0;
+  padding: 0.85rem 0 0;
+  border-top: 2px solid var(--line);
+}
+
+.registrar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0 0 0.65rem;
+}
+
+.registrar-head h2,
+.productos h3,
+.revision h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.registrar-head h2 {
+  margin: 0;
+}
+
+.cat-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin: 0 0 0.85rem;
+}
+
+.cat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-height: 4.15rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  background: var(--card);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 0.45rem;
+  cursor: pointer;
+}
+
+.cat-tile:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.cat-tile-name {
+  font-size: 0.88rem;
+  line-height: 1.15;
+}
+
+.cat-tile.is-on {
+  background: var(--aisle, var(--brand));
+  color: #fffaf3;
+  border-color: var(--ink);
+}
+
+.cat-tile.is-on .cat-mark {
+  background: #fffaf3;
+  color: var(--ink);
+}
+
+.dictar-box {
+  margin: 1rem 0 0;
+  padding: 0.85rem 0 0;
+  border-top: 2px solid var(--line);
+}
+
+.dictar-kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.movs-fold {
+  margin: 0 0 1rem;
+  border-top: 2px solid var(--line);
+  padding-top: 0.7rem;
+}
+
+.movs-fold summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.95rem;
+  list-style: none;
+}
+
+.movs-fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.movs-fold summary::before {
+  content: "▸ ";
+  color: var(--brand);
+}
+
+.movs-fold[open] summary::before {
+  content: "▾ ";
+}
+
+.movs-fold .mov {
+  margin-top: 0.65rem;
+}
+
+[data-cat="comida"] {
+  --aisle: #c45c12;
+}
+
+[data-cat="medicinas"] {
+  --aisle: #8b1e3f;
+}
+
+[data-cat="higiene"] {
+  --aisle: #2a7a6a;
+}
+
+[data-cat="ninos"] {
+  --aisle: #b36a12;
+}
+
+[data-cat="cobijas"] {
+  --aisle: #5b3d8f;
+}
+
+[data-cat="agua"] {
+  --aisle: #1a6f9a;
+}
+
+[data-cat="ropa"] {
+  --aisle: #3d5a80;
+}
+
+[data-cat="mascotas"] {
+  --aisle: #6b4a2a;
+}
+
+[data-cat="otro"] {
+  --aisle: #5c5348;
+}
+
+@media (min-width: 40rem) {
+  .bins {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .bins.is-single {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 14rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registrar-panel {
+    scroll-margin-top: 0;
+  }
 }
