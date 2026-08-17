@@ -20,6 +20,23 @@ function digitsOnly(value) {
 }
 
 /**
+ * WAHA chatId: keep @c.us / @lid / @g.us as-is.
+ * Official docs: reply using the incoming payload `from` (it already has the
+ * correct chatId). Do not rebuild `{digits}@c.us` — WEBJS then fails with
+ * "No LID for user". Convert only @s.whatsapp.net → @c.us.
+ * @param {unknown} raw
+ * @returns {string}
+ */
+function toWahaChatId(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (s.endsWith("@s.whatsapp.net")) {
+    return `${s.slice(0, -"@s.whatsapp.net".length)}@c.us`;
+  }
+  return s;
+}
+
+/**
  * @param {string} expected
  * @param {unknown} provided
  * @returns {boolean}
@@ -51,6 +68,30 @@ export function createWahaMessaging({
 }) {
   const root = String(wahaBase || "").replace(/\/+$/, "");
 
+  /**
+   * GET /api/{session}/lids/pn/{phone} — official LID map.
+   * @param {string} phone
+   * @returns {Promise<string|null>}
+   */
+  async function resolveLid(phone) {
+    const pn = digitsOnly(phone);
+    if (!pn) return null;
+    try {
+      const res = await fetchImpl(
+        `${root}/api/${encodeURIComponent(session)}/lids/pn/${encodeURIComponent(pn)}`,
+        { headers: { "X-Api-Key": apiKey ?? "" } },
+      );
+      if (!res.ok) return null;
+      const body = await res.json();
+      if (body && typeof body.lid === "string" && body.lid.endsWith("@lid")) {
+        return body.lid;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   return {
     name: "waha",
 
@@ -65,14 +106,15 @@ export function createWahaMessaging({
 
       const p = /** @type {Record<string, unknown>} */ (payload);
       const fromRaw = typeof p.from === "string" ? p.from : String(p.from ?? "");
-      const isGroup = fromRaw.endsWith("@g.us") || p.isGroup === true;
+      const from = toWahaChatId(fromRaw);
+      const isGroup = from.endsWith("@g.us") || p.isGroup === true;
       const hasMedia =
         p.hasMedia === true || MEDIA_TYPES.has(/** @type {string} */ (p.type));
       const text = p.body || p.caption || "";
 
       return [
         {
-          from: digitsOnly(fromRaw),
+          from,
           messageId: String(p.id ?? ""),
           text: typeof text === "string" ? text : String(text),
           hasMedia,
@@ -86,10 +128,11 @@ export function createWahaMessaging({
      * @param {{ to: string, text: string }} opts
      */
     async sendText({ to, text }) {
-      const toStr = String(to);
-      const chatId = toStr.includes("@")
-        ? toStr
-        : `${digitsOnly(toStr)}@c.us`;
+      let chatId = toWahaChatId(to);
+      if (chatId && !chatId.includes("@")) {
+        const lid = await resolveLid(chatId);
+        chatId = lid || `${digitsOnly(chatId)}@c.us`;
+      }
 
       let res;
       try {
