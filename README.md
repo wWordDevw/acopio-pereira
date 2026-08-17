@@ -58,6 +58,8 @@ En el dashboard WAHA, la sesión cuyo nombre coincide con `WAHA_SESSION`: `url: 
 
 Con Meta, el callback de la app es el mismo: `https://insumos.vowtech.lat/wa-hook` (GET verify + POST con HMAC).
 
+Plantilla para local y Dokploy: `.env.example` (copiar a `.env`; no commitear secretos).
+
 ### Variables de entorno (bot)
 
 | Variable | Valor prod | Notas |
