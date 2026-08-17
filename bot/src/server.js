@@ -123,8 +123,8 @@ export function createBotServer({
 
 /**
  * Wire LLM + dialog from env and listen.
- * PORT default 3001; WAHA_BASE default https://waha.vowtech.lat;
- * WAHA_SESSION default `JJ` (sesión viva en waha.vowtech.lat).
+ * PORT default 3001; WAHA_BASE default https://waha.vowtech.lat.
+ * WAHA_SESSION is required (Dokploy env). No session name is hardcoded.
  * @param {{
  *   env?: NodeJS.ProcessEnv,
  *   port?: number,
@@ -134,6 +134,12 @@ export function createBotServer({
  */
 export function listen(options = {}) {
   const env = options.env ?? process.env;
+  const session = String(env.WAHA_SESSION || "").trim();
+  if (!session) {
+    throw Object.assign(new Error("WAHA_SESSION is required"), {
+      code: "waha_session_missing",
+    });
+  }
   const fetchImpl = options.fetchImpl;
   const llm = createLlm(env, { fetchImpl });
   const dialog = createDialog({
@@ -146,7 +152,7 @@ export function listen(options = {}) {
     dialog,
     wahaBase: env.WAHA_BASE || "https://waha.vowtech.lat",
     wahaKey: env.WAHA_API_KEY,
-    session: env.WAHA_SESSION || "JJ",
+    session,
     fetchImpl,
     webhookSecret: env.WEBHOOK_SECRET,
   });

@@ -44,13 +44,13 @@ GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits e
 
 ## Bot WhatsApp
 
-El bot (`bot/`) llama al **WAHA ya desplegado** en `https://waha.vowtech.lat` (sesión `JJ`). No hay servicio `waha` en este repo. El nombre no se descubre solo: va en `WAHA_SESSION`.
+El bot (`bot/`) llama al **WAHA ya desplegado** en `https://waha.vowtech.lat`. No hay servicio `waha` en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).
 
 Webhook público (Dokploy domain path, Strip Path **off**, service `bot`, puerto 3001):
 
 `https://insumos.vowtech.lat/wa-hook`
 
-En el dashboard WAHA, sesión `JJ`: `url: https://insumos.vowtech.lat/wa-hook`, `events: ["message"]`. Si `WEBHOOK_SECRET` está set, WAHA debe enviar el header `X-Webhook-Secret`. QR en `https://waha.vowtech.lat`.
+En el dashboard WAHA, la sesión cuyo nombre coincide con `WAHA_SESSION`: `url: https://insumos.vowtech.lat/wa-hook`, `events: ["message"]`. Si `WEBHOOK_SECRET` está set, WAHA debe enviar el header `X-Webhook-Secret`. QR en `https://waha.vowtech.lat`.
 
 ### Variables de entorno (bot)
 
@@ -61,14 +61,14 @@ En el dashboard WAHA, sesión `JJ`: `url: https://insumos.vowtech.lat/wa-hook`, 
 | `PUBLIC_WEB` | `https://insumos.vowtech.lat` | Links de ficha |
 | `WAHA_BASE` | `https://waha.vowtech.lat` | Cliente; no un segundo WAHA |
 | `WAHA_API_KEY` | secret | Mismo key del proyecto WAHA |
-| `WAHA_SESSION` | `JJ` | Nombre exacto de la sesión en WAHA |
+| `WAHA_SESSION` | (Dokploy env, obligatorio) | Nombre exacto de la sesión en WAHA |
 | `WEBHOOK_SECRET` | secret (opcional) | Header `X-Webhook-Secret` |
 | `LLM_PROVIDER` | `minimax` | Fallback si las reglas no entienden |
 | `LLM_BASE_URL` | `https://api.minimax.io/v1` | |
 | `LLM_MODEL` | `MiniMax-M3` | |
 | `LLM_API_KEY` | secret | Sin key: pregunta a palo seco |
 
-La API puede recibir `WHATSAPP_PUBLIC_NUMBER` (dígitos, sin `+`) para el botón `wa.me` en la PWA.
+La API recibe `WHATSAPP_PUBLIC_NUMBER` (dígitos, sin `+`) desde el Environment de Dokploy para el botón `wa.me` en la PWA. No hardcodear el chip en el repo.
 
 ## Dokploy
 
@@ -79,7 +79,7 @@ Un proyecto **Insumos Pereira**, dos Applications, dominio **insumos.vowtech.lat
    - path `/api` → service `api`, puerto 3000, Strip Path off
    - path `/wa-hook` → service `bot`, puerto 3001, Strip Path off
    El `/api` tiene que existir en **cada** host de la web; si no, el mapa sale vacío y crear dice “sin red”.
-   WAHA no se despliega aquí: el bot llama a `https://waha.vowtech.lat` sesión `insumos`.
+   WAHA no se despliega aquí: el bot llama a `https://waha.vowtech.lat` con `WAHA_SESSION` del Environment.
 
 No publiques puertos Docker a `0.0.0.0`. El bot solo tiene `expose: "3001"`.
 

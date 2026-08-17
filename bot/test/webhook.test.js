@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createDialog } from "../src/dialog.js";
-import { createBotServer } from "../src/server.js";
+import { createBotServer, listen } from "../src/server.js";
 import { normalizeWahaEvent } from "../src/webhook.js";
 
 const event = {
@@ -314,6 +314,17 @@ describe("webhook server", () => {
     } finally {
       await srv.close();
     }
+  });
+
+  it("listen requires WAHA_SESSION from env", () => {
+    assert.throws(
+      () =>
+        listen({
+          env: { API_BASE: "http://127.0.0.1:3000" },
+          host: "127.0.0.1",
+        }),
+      (err) => err && err.code === "waha_session_missing",
+    );
   });
 
   it("WEBHOOK_SECRET matching header allows /wa-hook", async () => {
