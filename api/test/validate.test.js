@@ -4,6 +4,8 @@ import {
   validatePunto,
   validateMovimiento,
   validateConsulta,
+  validateOrden,
+  validateDia,
 } from "../src/validate.js";
 
 const KEY = "11111111-1111-1111-1111-111111111111";
@@ -115,5 +117,62 @@ describe("validateConsulta", () => {
     const r = validateConsulta({ lat: "4.81" });
     assert.equal(r.ok, false);
     assert.equal(r.error, "coordenada_invalida");
+  });
+});
+
+describe("validateOrden", () => {
+  const base = {
+    tipo: "entra",
+    abierta_at: "2026-08-17T18:12:00.000Z",
+    dia: "2026-08-17",
+    lineas: [{ categoria: "agua", cantidad: 2 }],
+    idempotency_key: KEY,
+  };
+
+  it("accepts a three-line entra", () => {
+    const r = validateOrden({
+      ...base,
+      lineas: [
+        { categoria: "ninos", cantidad: 20 },
+        { categoria: "comida", cantidad: 10 },
+        { categoria: "higiene", cantidad: 8 },
+      ],
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.value.lineas.length, 3);
+    assert.equal(r.value.dia, "2026-08-17");
+  });
+
+  it("rejects empty lineas", () => {
+    const r = validateOrden({ ...base, lineas: [] });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "items_invalidos");
+  });
+
+  it("rejects bad tipo", () => {
+    const r = validateOrden({ ...base, tipo: "mover" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "tipo_invalido");
+  });
+
+  it("rejects bad dia", () => {
+    const r = validateOrden({ ...base, dia: "17/08/2026" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "dia_invalido");
+  });
+
+  it("rejects unparseable abierta_at", () => {
+    const r = validateOrden({ ...base, abierta_at: "ayer" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "fecha_invalida");
+  });
+});
+
+describe("validateDia", () => {
+  it("accepts YYYY-MM-DD", () => {
+    assert.equal(validateDia("2026-08-17").value, "2026-08-17");
+  });
+  it("rejects slashes", () => {
+    assert.equal(validateDia("2026/08/17").ok, false);
   });
 });
