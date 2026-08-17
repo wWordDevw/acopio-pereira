@@ -486,3 +486,28 @@ path.yo-accuracy {
   padding: 0.45rem 0.55rem;
   font-size: 0.9rem;
 }
+
+.whatsapp-slot:empty {
+  display: none;
+}
+
+.whatsapp-slot {
+  padding: 0 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+  background: var(--paper);
+}
+
+.map-page .whatsapp-slot {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.wrap .whatsapp-slot {
+  padding: 0;
+  margin: 0 0 0.7rem;
+}
+
+.btn-whatsapp {
+  background: #1f6b45;
+  color: #f3fff6;
+  border-color: #0d3d24;
+}

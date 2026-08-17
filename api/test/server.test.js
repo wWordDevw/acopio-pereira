@@ -42,12 +42,17 @@ describe("server", () => {
   it("salud is 200", async () => {
     const res = await fetch(`${base}/api/salud`);
     assert.equal(res.status, 200);
-    assert.equal((await res.json()).ok, true);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.whatsapp, null);
   });
 
   it("health alias is 200", async () => {
     const res = await fetch(`${base}/api/health`);
     assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.whatsapp, null);
   });
 
   it("creates a point and replays the same key", async () => {
@@ -226,5 +231,75 @@ describe("server", () => {
     const cat = await fetch(`${base}/api`);
     const index = await cat.json();
     assert.equal(index.documentacion, "/api/docs");
+  });
+});
+
+describe("server whatsapp number", () => {
+  let dir;
+  let db;
+  let server;
+  let base;
+
+  before(async () => {
+    dir = mkdtempSync(join(tmpdir(), "acopio-wa-"));
+    db = openDb(join(dir, "t.sqlite"));
+    server = createServer({
+      db,
+      whatsappNumber: "+57 300 111 2233",
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    base = `http://127.0.0.1:${port}`;
+  });
+
+  after(() => {
+    server.close();
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("normalizes whatsapp number in salud", async () => {
+    const res = await fetch(`${base}/api/salud`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.whatsapp, "573001112233");
+  });
+
+  it("health alias includes normalized whatsapp", async () => {
+    const res = await fetch(`${base}/api/health`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.whatsapp, "573001112233");
+  });
+});
+
+describe("server invalid whatsapp number", () => {
+  let dir;
+  let db;
+  let server;
+  let base;
+
+  before(async () => {
+    dir = mkdtempSync(join(tmpdir(), "acopio-wa-bad-"));
+    db = openDb(join(dir, "t.sqlite"));
+    server = createServer({ db, whatsappNumber: "abc" });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    base = `http://127.0.0.1:${port}`;
+  });
+
+  after(() => {
+    server.close();
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("invalid whatsapp becomes null", async () => {
+    const res = await fetch(`${base}/api/salud`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.whatsapp, null);
   });
 });

@@ -159,7 +159,18 @@ function publicMovimiento(row) {
   };
 }
 
-export function createServer({ db, trustProxy = false }) {
+/** Strip spaces, +, dashes; keep only if 8–15 digits remain. */
+export function normalizeWhatsappNumber(raw) {
+  if (raw == null) return null;
+  const digits = String(raw).replace(/[\s+\-]/g, "");
+  if (digits.length === 0) return null;
+  if (!/^\d{8,15}$/.test(digits)) return null;
+  return digits;
+}
+
+export function createServer({ db, trustProxy = false, whatsappNumber = null }) {
+  const whatsapp = normalizeWhatsappNumber(whatsappNumber);
+
   return createHttpServer(async (req, res) => {
     try {
       const url = new URL(req.url || "/", "http://127.0.0.1");
@@ -175,7 +186,7 @@ export function createServer({ db, trustProxy = false }) {
         req.method === "GET" &&
         (path === "/api/salud" || path === "/api/health")
       ) {
-        json(res, 200, { ok: true });
+        json(res, 200, { ok: true, whatsapp });
         return;
       }
 
@@ -411,6 +422,8 @@ export function listen(options = {}) {
   const server = createServer({
     db,
     trustProxy: options.trustProxy ?? process.env.TRUST_PROXY === "1",
+    whatsappNumber:
+      options.whatsappNumber ?? process.env.WHATSAPP_PUBLIC_NUMBER ?? null,
   });
   const port = Number(options.port ?? process.env.PORT ?? 3000);
   server.listen(port, options.host ?? "0.0.0.0");

@@ -243,7 +243,8 @@ export function buildOpenApi({ serverUrl }) {
           tags: ["Meta"],
           summary: "Healthcheck",
           operationId: "getSalud",
-          description: "Para balanceadores y monitoreo. Alias: `GET /api/health`.",
+          description:
+            "Para balanceadores y monitoreo. Alias: `GET /api/health`. Incluye el número público de WhatsApp si está configurado (`WHATSAPP_PUBLIC_NUMBER`).",
           responses: {
             200: {
               description: "Servicio arriba.",
@@ -251,9 +252,18 @@ export function buildOpenApi({ serverUrl }) {
                 "application/json": {
                   schema: {
                     type: "object",
-                    properties: { ok: { type: "boolean", example: true } },
+                    properties: {
+                      ok: { type: "boolean", example: true },
+                      whatsapp: {
+                        type: "string",
+                        nullable: true,
+                        description:
+                          "Número en dígitos para wa.me, o null si no hay bot público.",
+                        example: null,
+                      },
+                    },
                   },
-                  example: { ok: true },
+                  example: { ok: true, whatsapp: null },
                 },
               },
             },
@@ -272,8 +282,12 @@ export function buildOpenApi({ serverUrl }) {
                 "application/json": {
                   schema: {
                     type: "object",
-                    properties: { ok: { type: "boolean" } },
+                    properties: {
+                      ok: { type: "boolean" },
+                      whatsapp: { type: "string", nullable: true },
+                    },
                   },
+                  example: { ok: true, whatsapp: null },
                 },
               },
             },
