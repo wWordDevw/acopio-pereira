@@ -2,6 +2,8 @@
 
 PWA para inventariar insumos de ayuda en Pereira. HTML nativo, mapa, GPS, botones + voz. API Node + SQLite.
 
+En la ficha de un punto: toca una categoría (Niños, Mascotas…) y salen los **productos** de esa categoría. Puedes crear uno nuevo (ej. pasta) si no está; el servidor evita duplicados (pañal ≈ pañales). Foto opcional por producto. Semilla alineada con las necesidades reales de Unidos por Pereira.
+
 Producción: **https://insumos.vowtech.lat** (mapa, ficha y API `/api`).
 
 ## Local

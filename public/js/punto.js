@@ -1,4 +1,11 @@
-import { getPunto, postMovimiento, interpretarVoz } from "./api.js";
+import {
+  getPunto,
+  postMovimiento,
+  interpretarVoz,
+  listProductos,
+  createProducto,
+  uploadFotoProducto,
+} from "./api.js";
 import {
   CATEGORIAS,
   newKey,
@@ -29,7 +36,15 @@ function renderStock(list, inventario) {
     const row = document.createElement("div");
     row.className = "stock-row";
     const name = document.createElement("span");
-    name.textContent = item.etiqueta || item.categoria;
+    name.className = "stock-name";
+    if (item.foto && item.producto_id) {
+      const img = document.createElement("img");
+      img.src = item.foto;
+      img.alt = "";
+      img.className = "stock-foto";
+      name.append(img);
+    }
+    name.append(item.nombre || item.etiqueta || item.categoria);
     const qty = document.createElement("span");
     qty.textContent = String(item.stock);
     row.append(name, qty);
@@ -165,14 +180,73 @@ async function main() {
   setTipo("entra");
 
   const cats = qs("cats");
+  const panel = qs("productos");
+  const lista = qs("productos-lista");
+  const pStatus = qs("producto-status");
+  let categoriaActiva = null;
+
+  async function abrirCategoria(slug, label) {
+    categoriaActiva = slug;
+    qs("productos-titulo").textContent = label;
+    panel.hidden = false;
+    cats.hidden = true;
+    pStatus.textContent = "";
+    lista.replaceChildren();
+    try {
+      const data = await listProductos({ categoria: slug });
+      if (data.productos.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "hint";
+        empty.textContent = "Aún no hay productos aquí. Crea el primero.";
+        lista.append(empty);
+      }
+      for (const p of data.productos) {
+        const row = document.createElement("div");
+        row.className = "producto-row";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-cat";
+        if (p.foto) {
+          const img = document.createElement("img");
+          img.src = p.foto;
+          img.alt = "";
+          img.className = "stock-foto";
+          btn.append(img);
+        }
+        btn.append(p.nombre);
+        btn.addEventListener("click", () => {
+          send(id, { tipo, producto_id: p.id, cantidad: 1 }, status);
+        });
+        const plus5 = document.createElement("button");
+        plus5.type = "button";
+        plus5.className = "btn btn-plus";
+        plus5.textContent = "+5";
+        plus5.addEventListener("click", () => {
+          send(id, { tipo, producto_id: p.id, cantidad: 5 }, status);
+        });
+        row.append(btn, plus5);
+        lista.append(row);
+      }
+      const gen = document.createElement("button");
+      gen.type = "button";
+      gen.className = "btn btn-ghost";
+      gen.textContent = `+1 ${label} (sin detalle)`;
+      gen.addEventListener("click", () => {
+        send(id, { tipo, categoria: slug, cantidad: 1 }, status);
+      });
+      lista.append(gen);
+    } catch (err) {
+      pStatus.textContent = errorText(err);
+      pStatus.classList.add("is-error");
+    }
+  }
+
   for (const [slug, label] of CATEGORIAS) {
     const plus1 = document.createElement("button");
     plus1.type = "button";
     plus1.className = "btn btn-cat";
     plus1.textContent = label;
-    plus1.addEventListener("click", () => {
-      send(id, { tipo, categoria: slug, cantidad: 1 }, status);
-    });
+    plus1.addEventListener("click", () => abrirCategoria(slug, label));
     const plus5 = document.createElement("button");
     plus5.type = "button";
     plus5.className = "btn btn-plus";
@@ -182,6 +256,53 @@ async function main() {
     });
     cats.append(plus1, plus5);
   }
+
+  qs("productos-cerrar").addEventListener("click", () => {
+    panel.hidden = true;
+    cats.hidden = false;
+    categoriaActiva = null;
+  });
+
+  qs("producto-nuevo").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!categoriaActiva) return;
+    const nombre = qs("producto-nombre").value.trim();
+    if (nombre.length < 2) {
+      pStatus.textContent = "Pon un nombre de al menos 2 letras.";
+      pStatus.classList.add("is-error");
+      return;
+    }
+    pStatus.textContent = "Creando…";
+    pStatus.classList.remove("is-error", "is-ok");
+    try {
+      const created = await createProducto({ nombre, categoria: categoriaActiva });
+      const file = qs("producto-foto").files[0];
+      if (file) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const mime = file.type || "image/jpeg";
+        const imagen_base64 = String(dataUrl).split(",")[1] || "";
+        await uploadFotoProducto(created.id, { imagen_base64, mime });
+      }
+      qs("producto-nombre").value = "";
+      qs("producto-foto").value = "";
+      pStatus.textContent = "Producto listo. Tócalo para registrar.";
+      pStatus.classList.add("is-ok");
+      const label = CATEGORIAS.find((c) => c[0] === categoriaActiva)?.[1];
+      await abrirCategoria(categoriaActiva, label || categoriaActiva);
+    } catch (err) {
+      if (err.code === "posible_duplicado" && err.candidatos?.[0]) {
+        pStatus.textContent = `¿Es “${err.candidatos[0].nombre}”? Usa ese, no crees otro.`;
+      } else {
+        pStatus.textContent = errorText(err);
+      }
+      pStatus.classList.add("is-error");
+    }
+  });
 
   const draft = { items: [], textos: [] };
   const revision = qs("revision");

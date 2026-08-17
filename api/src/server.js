@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   openDb,
@@ -12,6 +12,10 @@ import {
   insertMovimientos,
   stockByPunto,
   hitRateLimit,
+  listProductos,
+  getProducto,
+  insertProducto,
+  setProductoFoto,
 } from "./db.js";
 import {
   validatePunto,
@@ -19,12 +23,18 @@ import {
   validatePuntoId,
   validateConsulta,
   validateInterpretar,
+  validateProducto,
+  validateFoto,
 } from "./validate.js";
 import { parseVoz } from "./parse-voz.js";
 import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
 import { filtrarPuntos } from "./consultar.js";
 import { buildOpenApi } from "./openapi.js";
 import { swaggerHtml, swaggerInitJs } from "./swagger-html.js";
+import {
+  candidatosParecidos,
+  findProductoEnLista,
+} from "./productos.js";
 
 const PUNTOS_LIMIT = { windowMs: 60 * 60 * 1000, limit: 30 };
 const MOV_LIMIT = { windowMs: 60 * 1000, limit: 60 };
@@ -138,7 +148,10 @@ function publicPunto(row, inventario = []) {
     updated_at: row.updated_at,
     inventario: inventario.map((i) => ({
       categoria: i.categoria,
-      etiqueta: ETIQUETAS[i.categoria] || i.categoria,
+      etiqueta: i.nombre || ETIQUETAS[i.categoria] || i.categoria,
+      nombre: i.nombre || null,
+      producto_id: i.producto_id || null,
+      foto: i.producto_id ? `/api/productos/${i.producto_id}/foto` : null,
       stock: i.stock,
     })),
     tiene_stock: inventario.some((i) => i.stock > 0),
@@ -151,11 +164,32 @@ function publicMovimiento(row) {
     id: row.id,
     tipo: row.tipo,
     categoria: row.categoria,
+    producto_id: row.producto_id || null,
     etiqueta: ETIQUETAS[row.categoria] || row.categoria,
     cantidad: row.cantidad,
     texto_original: row.texto_original,
     created_at: row.created_at,
     ajustado: Boolean(row.ajustado),
+  };
+}
+
+function publicProducto(row) {
+  const aliases = (() => {
+    try {
+      const parsed = JSON.parse(row.aliases || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+  return {
+    id: row.id,
+    slug: row.slug,
+    nombre: row.nombre,
+    categoria: row.categoria,
+    etiqueta: ETIQUETAS[row.categoria] || row.categoria,
+    aliases,
+    foto: row.foto_path ? `/api/productos/${row.id}/foto` : null,
   };
 }
 
@@ -168,7 +202,13 @@ export function normalizeWhatsappNumber(raw) {
   return digits;
 }
 
-export function createServer({ db, trustProxy = false, whatsappNumber = null }) {
+export function createServer({
+  db,
+  trustProxy = false,
+  whatsappNumber = null,
+  fotosDir,
+} = {}) {
+  const photoDir = fotosDir || db.fotosDir;
   const whatsapp = normalizeWhatsappNumber(whatsappNumber);
 
   return createHttpServer(async (req, res) => {
@@ -231,6 +271,143 @@ export function createServer({ db, trustProxy = false, whatsappNumber = null }) 
             etiqueta: ETIQUETAS[slug],
           })),
         });
+        return;
+      }
+
+      if (req.method === "GET" && path === "/api/productos") {
+        const categoria = url.searchParams.get("categoria") || null;
+        if (categoria && !CATEGORIAS.includes(categoria)) {
+          json(res, 400, { error: "categoria_invalida" });
+          return;
+        }
+        const q = url.searchParams.get("q") || "";
+        json(res, 200, {
+          productos: listProductos(db, { categoria, q }).map(publicProducto),
+        });
+        return;
+      }
+
+      if (req.method === "POST" && path === "/api/productos") {
+        const body = await readBody(req);
+        const parsed = validateProducto(body);
+        if (!parsed.ok) {
+          json(res, parsed.status, { error: parsed.error });
+          return;
+        }
+        const todos = listProductos(db, { categoria: parsed.value.categoria });
+        const exacto = findProductoEnLista(
+          todos,
+          parsed.value.nombre,
+          parsed.value.categoria,
+        );
+        if (exacto) {
+          json(res, 200, publicProducto(exacto));
+          return;
+        }
+        const parecidos = candidatosParecidos(
+          todos,
+          parsed.value.nombre,
+          parsed.value.categoria,
+        );
+        if (parecidos.length) {
+          json(res, 409, {
+            error: "posible_duplicado",
+            candidatos: parecidos.map(publicProducto),
+          });
+          return;
+        }
+        const result = insertProducto(db, parsed.value);
+        json(res, result.created ? 201 : 200, publicProducto(result.row));
+        return;
+      }
+
+      if (
+        req.method === "GET" &&
+        path.startsWith("/api/productos/") &&
+        path.endsWith("/foto")
+      ) {
+        const idRaw = path.slice(
+          "/api/productos/".length,
+          path.length - "/foto".length,
+        );
+        const idParsed = validatePuntoId(idRaw);
+        if (!idParsed.ok) {
+          json(res, idParsed.status, { error: idParsed.error });
+          return;
+        }
+        const prod = getProducto(db, idParsed.value);
+        if (!prod || !prod.foto_path) {
+          json(res, 404, { error: "no_encontrado" });
+          return;
+        }
+        try {
+          const buf = readFileSync(prod.foto_path);
+          const ext = extname(prod.foto_path).toLowerCase();
+          const mime =
+            ext === ".png"
+              ? "image/png"
+              : ext === ".webp"
+                ? "image/webp"
+                : "image/jpeg";
+          res.writeHead(200, {
+            "content-type": mime,
+            "content-length": buf.length,
+            "cache-control": "public, max-age=86400",
+            ...CORS_GET,
+          });
+          res.end(buf);
+        } catch {
+          json(res, 404, { error: "no_encontrado" });
+        }
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        path.startsWith("/api/productos/") &&
+        path.endsWith("/foto")
+      ) {
+        const idRaw = path.slice(
+          "/api/productos/".length,
+          path.length - "/foto".length,
+        );
+        const idParsed = validatePuntoId(idRaw);
+        if (!idParsed.ok) {
+          json(res, idParsed.status, { error: idParsed.error });
+          return;
+        }
+        const prod = getProducto(db, idParsed.value);
+        if (!prod) {
+          json(res, 404, { error: "no_encontrado" });
+          return;
+        }
+        const body = await readBody(req);
+        const parsed = validateFoto(body);
+        if (!parsed.ok) {
+          json(res, parsed.status, { error: parsed.error });
+          return;
+        }
+        let buf;
+        try {
+          buf = Buffer.from(parsed.value.imagen_base64, "base64");
+        } catch {
+          json(res, 400, { error: "foto_invalida" });
+          return;
+        }
+        if (buf.length < 8 || buf.length > 800_000) {
+          json(res, 400, { error: "foto_grande" });
+          return;
+        }
+        const ext =
+          parsed.value.mime === "image/png"
+            ? ".png"
+            : parsed.value.mime === "image/webp"
+              ? ".webp"
+              : ".jpg";
+        const dest = join(photoDir, `${prod.id}${ext}`);
+        mkdirSync(photoDir, { recursive: true });
+        writeFileSync(dest, buf);
+        json(res, 200, publicProducto(setProductoFoto(db, prod.id, dest)));
         return;
       }
 
@@ -366,6 +543,7 @@ export function createServer({ db, trustProxy = false, whatsappNumber = null }) 
             categoria: it.categoria,
             cantidad: it.cantidad,
             texto_original: it.texto_original,
+            producto_id: it.producto_id || null,
           }));
         } else if (parsed.value.texto) {
           const parsedItems = parseVoz(parsed.value.texto);
@@ -373,12 +551,36 @@ export function createServer({ db, trustProxy = false, whatsappNumber = null }) 
             json(res, 400, { error: "texto_invalido" });
             return;
           }
-          items = parsedItems.map((it) => ({
-            tipo: parsed.value.tipo,
-            categoria: it.categoria,
-            cantidad: it.cantidad,
-            texto_original: it.texto_original,
-          }));
+          const catalogo = listProductos(db);
+          items = parsedItems.map((it) => {
+            const hit = findProductoEnLista(
+              catalogo,
+              it.frase || it.texto_original,
+              it.categoria,
+            );
+            return {
+              tipo: parsed.value.tipo,
+              categoria: it.categoria,
+              cantidad: it.cantidad,
+              texto_original: it.texto_original,
+              producto_id: hit?.id || null,
+            };
+          });
+        } else if (parsed.value.producto_id) {
+          const prod = getProducto(db, parsed.value.producto_id);
+          if (!prod) {
+            json(res, 404, { error: "no_encontrado" });
+            return;
+          }
+          items = [
+            {
+              tipo: parsed.value.tipo,
+              categoria: prod.categoria,
+              producto_id: prod.id,
+              cantidad: parsed.value.cantidad,
+              texto_original: null,
+            },
+          ];
         } else {
           items = [
             {
@@ -386,6 +588,7 @@ export function createServer({ db, trustProxy = false, whatsappNumber = null }) 
               categoria: parsed.value.categoria,
               cantidad: parsed.value.cantidad,
               texto_original: null,
+              producto_id: null,
             },
           ];
         }
@@ -418,12 +621,14 @@ export function listen(options = {}) {
   const sqlitePath =
     options.sqlitePath || process.env.SQLITE_PATH || "./data/acopio.sqlite";
   mkdirSync(dirname(sqlitePath), { recursive: true });
-  const db = openDb(sqlitePath);
+  const fotosDir = join(dirname(sqlitePath), "fotos");
+  const db = openDb(sqlitePath, { fotosDir });
   const server = createServer({
     db,
     trustProxy: options.trustProxy ?? process.env.TRUST_PROXY === "1",
     whatsappNumber:
       options.whatsappNumber ?? process.env.WHATSAPP_PUBLIC_NUMBER ?? null,
+    fotosDir,
   });
   const port = Number(options.port ?? process.env.PORT ?? 3000);
   server.listen(port, options.host ?? "0.0.0.0");
