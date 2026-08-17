@@ -147,7 +147,7 @@
             </section>
           </div>
         </div>
-        <div id="lote-panel" class="registrar-panel" hidden>
+        <div id="lote-panel" class="registrar-panel lote-panel" hidden>
           <div class="registrar-head">
             <h2 id="lote-hora">Lote</h2>
             <button type="button" class="btn btn-ghost btn-compact" id="btn-lote-cerrar">
@@ -163,7 +163,7 @@
             confirmar.
           </p>
           <div id="lote-picker"></div>
-          <ul id="lote-lineas" class="revision-lista"></ul>
+          <ul id="lote-lineas" class="revision-lista lote-lineas"></ul>
           <div class="stack">
             <label class="btn btn-ghost producto-foto-btn">
               Foto del lote
@@ -186,11 +186,37 @@
         </div>
       </section>
 
+      <details class="movs-fold" id="ordenes-fold">
+        <summary>Órdenes de hoy</summary>
+        <ul id="ordenes-lista" class="ordenes-lista"></ul>
+      </details>
+
       <details class="movs-fold">
         <summary>Últimos movimientos</summary>
         <ul id="movs" class="mov"></ul>
       </details>
     </main>
+    <section
+      id="orden-ficha"
+      class="orden-ficha"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="orden-ficha-hora"
+    >
+      <div class="orden-ficha-sheet">
+        <div class="registrar-head">
+          <h2 id="orden-ficha-hora">Lote</h2>
+          <button type="button" class="btn btn-ghost btn-compact" id="btn-orden-ficha-cerrar">
+            Cerrar
+          </button>
+        </div>
+        <p id="orden-ficha-tipo" class="orden-ficha-tipo"></p>
+        <p id="orden-ficha-nota" class="hint" hidden></p>
+        <img id="orden-ficha-foto" class="orden-ficha-foto" alt="Foto del lote" hidden />
+        <ul id="orden-ficha-lineas" class="orden-ficha-lineas"></ul>
+      </div>
+    </section>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="/js/punto.js"></script>
   </body>

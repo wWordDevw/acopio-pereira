@@ -2,6 +2,8 @@ import {
   getPunto,
   postMovimiento,
   postOrden,
+  listOrdenes,
+  getOrden,
   interpretarVoz,
   listProductos,
   createProducto,
@@ -224,7 +226,7 @@ function renderBodega(inventario, filtro, { onFilter, onAddInCat }) {
   }
 }
 
-function renderMovs(list, movimientos) {
+function renderMovs(list, movimientos, onOpenOrden) {
   list.replaceChildren();
   if (!movimientos || movimientos.length === 0) {
     const li = document.createElement("li");
@@ -244,6 +246,57 @@ function renderMovs(list, movimientos) {
     when.className = "meta";
     when.textContent = formatWhen(m.created_at);
     li.append(qty, when);
+    if (m.orden_id) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "orden-chip";
+      chip.textContent = `Lote ${formatWhen(m.orden_abierta_at)}`;
+      chip.addEventListener("click", () => onOpenOrden(m.orden_id));
+      li.append(chip);
+    }
+    list.append(li);
+  }
+}
+
+function renderOrdenes(list, ordenes, onOpenOrden) {
+  list.replaceChildren();
+  if (!ordenes || ordenes.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "Sin órdenes hoy.";
+    list.append(li);
+    return;
+  }
+  for (const o of ordenes) {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "orden-row";
+    const hora = document.createElement("span");
+    hora.className = "orden-row-hora";
+    hora.textContent = formatWhen(o.abierta_at);
+    const tipo = document.createElement("span");
+    tipo.className =
+      "orden-row-tipo " + (o.tipo === "sale" ? "qty-sale" : "qty-entra");
+    tipo.textContent = o.tipo === "sale" ? "Sale" : "Entra";
+    const resumen = document.createElement("span");
+    resumen.className = "orden-row-resumen";
+    const nItems = Number(o.lineas) || 0;
+    const nUnd = Number(o.unidades) || 0;
+    const itemsLabel = nItems === 1 ? "1 ítem" : `${nItems} ítems`;
+    const undLabel = nUnd === 1 ? "1 und." : `${nUnd} und.`;
+    resumen.textContent = `${itemsLabel} · ${undLabel}`;
+    btn.append(hora, tipo, resumen);
+    if (o.foto) {
+      const img = document.createElement("img");
+      img.src = o.foto;
+      img.alt = "";
+      img.className = "orden-row-foto";
+      img.addEventListener("error", () => img.remove());
+      btn.append(img);
+    }
+    btn.addEventListener("click", () => onOpenOrden(o.id));
+    li.append(btn);
     list.append(li);
   }
 }
@@ -342,7 +395,91 @@ async function main() {
       },
       onAddInCat: openRegistrarOn,
     });
-    renderMovs(qs("movs"), data.movimientos);
+    renderMovs(qs("movs"), data.movimientos, openOrdenFicha);
+    loadOrdenes();
+  }
+
+  function hideOrdenFicha() {
+    qs("orden-ficha").hidden = true;
+    document.body.classList.remove("is-ficha-open");
+  }
+
+  function fillOrdenFicha(orden) {
+    qs("orden-ficha-hora").textContent = formatWhen(orden.abierta_at);
+    const tipoEl = qs("orden-ficha-tipo");
+    tipoEl.textContent = orden.tipo === "sale" ? "Sale" : "Entra";
+    tipoEl.className =
+      "orden-ficha-tipo " + (orden.tipo === "sale" ? "qty-sale" : "qty-entra");
+    const notaEl = qs("orden-ficha-nota");
+    if (orden.nota) {
+      notaEl.textContent = orden.nota;
+      notaEl.hidden = false;
+    } else {
+      notaEl.textContent = "";
+      notaEl.hidden = true;
+    }
+    const fotoEl = qs("orden-ficha-foto");
+    if (orden.foto) {
+      fotoEl.src = orden.foto;
+      fotoEl.hidden = false;
+    } else {
+      fotoEl.removeAttribute("src");
+      fotoEl.hidden = true;
+    }
+    const lineasEl = qs("orden-ficha-lineas");
+    lineasEl.replaceChildren();
+    for (const linea of orden.lineas || []) {
+      const li = document.createElement("li");
+      li.className = "lote-linea";
+      if (linea.foto) {
+        const img = document.createElement("img");
+        img.src = linea.foto;
+        img.alt = "";
+        img.className = "orden-ficha-linea-foto";
+        img.addEventListener("error", () => img.remove());
+        li.append(img);
+      }
+      const name = document.createElement("span");
+      name.className = "orden-ficha-linea-nombre";
+      name.textContent =
+        linea.nombre ||
+        linea.etiqueta ||
+        ETIQUETA[linea.categoria] ||
+        linea.categoria;
+      const qty = document.createElement("span");
+      qty.className = "orden-ficha-linea-qty";
+      qty.textContent = String(linea.cantidad);
+      li.append(name, qty);
+      lineasEl.append(li);
+    }
+    qs("orden-ficha").hidden = false;
+    document.body.classList.add("is-ficha-open");
+    qs("btn-orden-ficha-cerrar").focus();
+  }
+
+  async function openOrdenFicha(ordenId) {
+    try {
+      const orden = await getOrden(ordenId);
+      fillOrdenFicha(orden);
+    } catch (err) {
+      status.textContent = errorText(err);
+      status.classList.remove("is-ok");
+      status.classList.add("is-error");
+    }
+  }
+
+  async function loadOrdenes() {
+    const list = qs("ordenes-lista");
+    try {
+      const data = await listOrdenes(id, hoyLocal());
+      renderOrdenes(list, data.ordenes || [], openOrdenFicha);
+    } catch (err) {
+      list.replaceChildren();
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = errorText(err);
+      list.append(li);
+    }
   }
 
   function setTipo(next) {
@@ -416,7 +553,7 @@ async function main() {
     }
     loteDraft.lineas.forEach((linea, index) => {
       const li = document.createElement("li");
-      li.className = "revision-item";
+      li.className = "revision-item lote-linea";
       const qty = document.createElement("span");
       qty.textContent = String(linea.cantidad);
       const name = document.createElement("span");
@@ -648,6 +785,7 @@ async function main() {
   qs("btn-lote-cerrar").addEventListener("click", () => {
     discardLoteIfNeeded();
   });
+  qs("btn-orden-ficha-cerrar").addEventListener("click", hideOrdenFicha);
   qs("lote-entra").addEventListener("click", () => setLoteTipo("entra"));
   qs("lote-sale").addEventListener("click", () => setLoteTipo("sale"));
   qs("lote-foto").addEventListener("change", () => {
@@ -698,6 +836,7 @@ async function main() {
       const verbo = tipoLote === "sale" ? "Salieron" : "Entraron";
       paint(data);
       resetLote();
+      qs("ordenes-fold").open = true;
       status.textContent = `${verbo} ${n} en el lote de las ${when}.${extra}`;
       status.classList.add("is-ok");
     } catch (err) {
