@@ -178,9 +178,14 @@ describe("ordenes api", () => {
   });
 
   it("keeps loose movimientos without an orden_id", async () => {
+    const catalogo = await fetch(`${base}/api/productos?categoria=agua`).then(
+      (r) => r.json(),
+    );
+    const agua = catalogo.productos[0];
+    assert.ok(agua, "seed product for agua");
     const mov = await post(`/api/puntos/${punto.id}/movimientos`, {
       tipo: "entra",
-      categoria: "agua",
+      producto_id: agua.id,
       cantidad: 3,
       idempotency_key: KEY(4),
     });
