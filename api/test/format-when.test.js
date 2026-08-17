@@ -4,9 +4,7 @@ import { formatWhen } from "../../public/js/categorias.js";
 
 describe("formatWhen", () => {
   it("prints clock time for today, not hace X min", () => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - 12);
-    const text = formatWhen(d.toISOString());
+    const text = formatWhen(new Date().toISOString());
     assert.equal(/\bhace\b/.test(text), false);
     assert.equal(/\bahora\b/.test(text), false);
     assert.match(text, /^\d{2}[:.]\d{2}$/);

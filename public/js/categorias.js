@@ -83,6 +83,7 @@ export function errorText(err) {
     posible_duplicado: "Ese producto ya existe o se parece a uno. Elige el de la lista.",
     foto_invalida: "La foto no se pudo leer. Usa jpg o png.",
     foto_grande: "La foto es muy pesada. Prueba otra más liviana.",
+    too_large: "La foto es muy pesada. Prueba otra más liviana.",
     producto_invalido: "Producto no válido.",
     producto_requerido: "Elige un producto de la lista.",
   };

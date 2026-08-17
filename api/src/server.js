@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -648,21 +654,43 @@ export function createServer({
           photoBuf = buf;
         }
 
-        const result = insertOrden(db, {
-          id,
-          puntoId: punto.id,
-          tipo: parsed.value.tipo,
-          abierta_at: parsed.value.abierta_at,
-          dia: parsed.value.dia,
-          nota: parsed.value.nota,
-          foto_path,
-          lineas,
-          idempotency_key: parsed.value.idempotency_key,
-        });
-
-        if (result.created && photoBuf) {
+        if (photoBuf && foto_path) {
           mkdirSync(photoDir, { recursive: true });
           writeFileSync(foto_path, photoBuf);
+        }
+
+        let result;
+        try {
+          result = insertOrden(db, {
+            id,
+            puntoId: punto.id,
+            tipo: parsed.value.tipo,
+            abierta_at: parsed.value.abierta_at,
+            dia: parsed.value.dia,
+            nota: parsed.value.nota,
+            foto_path,
+            lineas,
+            idempotency_key: parsed.value.idempotency_key,
+          });
+        } catch (err) {
+          if (photoBuf && foto_path) {
+            try {
+              unlinkSync(foto_path);
+            } catch {
+              /* orphan file is harmless */
+            }
+          }
+          throw err;
+        }
+
+        if (
+          !result.created &&
+          result.orden.foto_path &&
+          photoBuf &&
+          !existsSync(result.orden.foto_path)
+        ) {
+          mkdirSync(photoDir, { recursive: true });
+          writeFileSync(result.orden.foto_path, photoBuf);
         }
 
         const fresh = getPunto(db, punto.id);

@@ -834,10 +834,12 @@ async function main() {
         ? " Se ajustó a lo que había."
         : "";
       const verbo = tipoLote === "sale" ? "Salieron" : "Entraron";
+      const unidades =
+        data.orden && data.orden.unidades != null ? data.orden.unidades : n;
       paint(data);
       resetLote();
       qs("ordenes-fold").open = true;
-      status.textContent = `${verbo} ${n} en el lote de las ${when}.${extra}`;
+      status.textContent = `${verbo} ${unidades} en el lote de las ${when}.${extra}`;
       status.classList.add("is-ok");
     } catch (err) {
       status.textContent = errorText(err);
