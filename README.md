@@ -44,13 +44,13 @@ GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits e
 
 ## Bot WhatsApp
 
-El bot (`bot/`) llama al **WAHA ya desplegado** en `https://waha.vowtech.lat` (sesión `insumos`). No hay servicio `waha` en este repo.
+El bot (`bot/`) llama al **WAHA ya desplegado** en `https://waha.vowtech.lat` (sesión `JJ`). No hay servicio `waha` en este repo. El nombre no se descubre solo: va en `WAHA_SESSION`.
 
 Webhook público (Dokploy domain path, Strip Path **off**, service `bot`, puerto 3001):
 
 `https://insumos.vowtech.lat/wa-hook`
 
-En el dashboard WAHA, sesión `insumos`: `url: https://insumos.vowtech.lat/wa-hook`, `events: ["message"]`. Si `WEBHOOK_SECRET` está set, WAHA debe enviar el header `X-Webhook-Secret`. QR en `https://waha.vowtech.lat`.
+En el dashboard WAHA, sesión `JJ`: `url: https://insumos.vowtech.lat/wa-hook`, `events: ["message"]`. Si `WEBHOOK_SECRET` está set, WAHA debe enviar el header `X-Webhook-Secret`. QR en `https://waha.vowtech.lat`.
 
 ### Variables de entorno (bot)
 
@@ -61,7 +61,7 @@ En el dashboard WAHA, sesión `insumos`: `url: https://insumos.vowtech.lat/wa-ho
 | `PUBLIC_WEB` | `https://insumos.vowtech.lat` | Links de ficha |
 | `WAHA_BASE` | `https://waha.vowtech.lat` | Cliente; no un segundo WAHA |
 | `WAHA_API_KEY` | secret | Mismo key del proyecto WAHA |
-| `WAHA_SESSION` | `insumos` | No pisar otras apps |
+| `WAHA_SESSION` | `JJ` | Nombre exacto de la sesión en WAHA |
 | `WEBHOOK_SECRET` | secret (opcional) | Header `X-Webhook-Secret` |
 | `LLM_PROVIDER` | `minimax` | Fallback si las reglas no entienden |
 | `LLM_BASE_URL` | `https://api.minimax.io/v1` | |

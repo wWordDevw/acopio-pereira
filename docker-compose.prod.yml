@@ -9,6 +9,7 @@ services:
       PORT: "3000"
       SQLITE_PATH: /data/acopio.sqlite
       TRUST_PROXY: "1"
+      WHATSAPP_PUBLIC_NUMBER: "573136732685"
     volumes:
       - acopio_data:/data
     expose:
@@ -25,7 +26,7 @@ services:
       PUBLIC_WEB: https://insumos.vowtech.lat
       WAHA_BASE: https://waha.vowtech.lat
       WAHA_API_KEY: ${WAHA_API_KEY}
-      WAHA_SESSION: insumos
+      WAHA_SESSION: JJ
       WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       LLM_PROVIDER: minimax
       LLM_BASE_URL: https://api.minimax.io/v1

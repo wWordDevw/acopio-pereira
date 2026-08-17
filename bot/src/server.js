@@ -124,7 +124,7 @@ export function createBotServer({
 /**
  * Wire LLM + dialog from env and listen.
  * PORT default 3001; WAHA_BASE default https://waha.vowtech.lat;
- * WAHA_SESSION default `insumos`.
+ * WAHA_SESSION default `JJ` (sesión viva en waha.vowtech.lat).
  * @param {{
  *   env?: NodeJS.ProcessEnv,
  *   port?: number,
@@ -146,7 +146,7 @@ export function listen(options = {}) {
     dialog,
     wahaBase: env.WAHA_BASE || "https://waha.vowtech.lat",
     wahaKey: env.WAHA_API_KEY,
-    session: env.WAHA_SESSION || "insumos",
+    session: env.WAHA_SESSION || "JJ",
     fetchImpl,
     webhookSecret: env.WEBHOOK_SECRET,
   });
