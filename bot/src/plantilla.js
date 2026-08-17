@@ -1,4 +1,4 @@
-import { ETIQUETAS } from "../../api/src/categorias.js";
+import { CATEGORIAS, ETIQUETAS } from "../../api/src/categorias.js";
 import { ZONAS } from "./zonas.js";
 
 export const PUBLIC_WEB = "https://insumos.vowtech.lat";
@@ -18,26 +18,17 @@ export function conPieMenu(text) {
   return `${body}\n\n0 Menú`;
 }
 
-/** Numbered start menu 1–9 + example + 0 Menú. */
 export function textoMenuInicio() {
+  const cats = CATEGORIAS.filter((c) => c !== "otro");
+  const lineas = cats.map((c, i) => `${i + 1} ${etiqueta(c)}`);
   return (
     "Puedo decirte qué hay y a dónde ir.\n" +
     "Escribe el número o el insumo y el barrio (ej: cobijas en Cuba).\n" +
     "\n" +
-    "1 Comida\n" +
-    "2 Medicinas\n" +
-    "3 Higiene\n" +
-    "4 Niños\n" +
-    "5 Cobijas\n" +
-    "6 Agua\n" +
-    "7 Ropa\n" +
-    "8 Mascotas\n" +
-    "9 Mapa\n" +
-    "0 Menú"
+    [...lineas, `${cats.length + 1} Mapa`, "0 Menú"].join("\n")
   );
 }
 
-/** Help text: alias of numbered start menu. */
 export function textoAyuda() {
   return textoMenuInicio();
 }
@@ -73,7 +64,6 @@ export function textoApiCaida(publicWeb) {
   return conPieMenu(`No pude consultar el inventario ahora. Mira el mapa: ${base}`);
 }
 
-/** After category pick: where? */
 export function textoMenuZona(categoria) {
   const etiq = etiqueta(categoria);
   return (
@@ -87,13 +77,11 @@ export function textoMenuZona(categoria) {
   );
 }
 
-/** Numbered barrios from ZONAS. */
 export function textoMenuBarrios() {
   const lineas = ZONAS.map((z, i) => `${i + 1} ${z.nombre}`);
   return ["Elige el barrio:", "", ...lineas, "0 Menú"].join("\n");
 }
 
-/** Map link with menu footer. */
 export function textoMapa(publicWeb) {
   return conPieMenu(`Mira el mapa: ${webBase(publicWeb)}`);
 }

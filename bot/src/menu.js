@@ -68,7 +68,7 @@ export function resolveMenu({ pantalla, n, categoria = null, publicWeb }) {
         text: textoMenuZona(cat),
       };
     }
-    if (n === 9) {
+    if (n === MENU_CATEGORIAS.length + 1) {
       return {
         kind: "stay",
         next: "inicio",
