@@ -1,6 +1,6 @@
 /**
  * @typedef {object} IncomingMessage
- * @property {string} from
+ * @property {string} from         WAHA: JID as in the webhook (`…@c.us` / `…@lid`). Meta: digits.
  * @property {string} messageId
  * @property {string} text
  * @property {boolean} hasMedia

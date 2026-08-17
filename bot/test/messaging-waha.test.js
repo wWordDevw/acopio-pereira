@@ -32,16 +32,29 @@ describe("createWahaMessaging", () => {
     assert.equal(m.verifyWebhook(new URLSearchParams("hub.mode=subscribe")), null);
   });
 
-  it("parseIncoming maps fixture to digits from", () => {
+  it("parseIncoming keeps the WAHA from JID", () => {
     const [n] = make().parseIncoming(event);
     assert.deepEqual(n, {
-      from: "573001112233",
+      from: "573001112233@c.us",
       messageId: "true_57300@c.us_AAA",
       text: "dónde hay comida",
       hasMedia: false,
       fromMe: false,
       isGroup: false,
     });
+  });
+
+  it("parseIncoming keeps @lid and converts @s.whatsapp.net", () => {
+    const [lid] = make().parseIncoming({
+      ...event,
+      payload: { ...event.payload, from: "23423462304912@lid" },
+    });
+    assert.equal(lid.from, "23423462304912@lid");
+    const [net] = make().parseIncoming({
+      ...event,
+      payload: { ...event.payload, from: "573001112233@s.whatsapp.net" },
+    });
+    assert.equal(net.from, "573001112233@c.us");
   });
 
   it("parseIncoming ignores message.any and missing payload", () => {
@@ -58,7 +71,7 @@ describe("createWahaMessaging", () => {
       payload: { ...event.payload, from: "120363@g.us" },
     });
     assert.equal(byJid.isGroup, true);
-    assert.equal(byJid.from, "120363");
+    assert.equal(byJid.from, "120363@g.us");
     const [byFlag] = m.parseIncoming({
       ...event,
       payload: { ...event.payload, isGroup: true },
@@ -81,25 +94,50 @@ describe("createWahaMessaging", () => {
     assert.equal(n.hasMedia, true);
   });
 
-  it("sendText posts chatId with @c.us", async () => {
+  it("sendText posts chatId with @c.us when lids has no mapping", async () => {
     const sent = [];
     const m = make({
       fetchImpl: async (url, init) => {
         sent.push({ url: String(url), init });
-        return { ok: true, status: 200 };
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { lid: null, pn: "573001112233@c.us" };
+          },
+        };
       },
     });
     await m.sendText({ to: "573001112233", text: "hola" });
-    assert.equal(sent[0].url, "http://waha:3000/api/sendText");
-    assert.equal(sent[0].init.headers["X-Api-Key"], "test-key");
-    assert.deepEqual(JSON.parse(sent[0].init.body), {
+    assert.ok(sent[0].url.includes("/api/default/lids/pn/573001112233"));
+    assert.equal(sent[1].url, "http://waha:3000/api/sendText");
+    assert.equal(sent[1].init.headers["X-Api-Key"], "test-key");
+    assert.deepEqual(JSON.parse(sent[1].init.body), {
       session: "default",
       chatId: "573001112233@c.us",
       text: "hola",
     });
   });
 
-  it("sendText does not double @c.us", async () => {
+  it("sendText uses lids @lid when mapping exists", async () => {
+    const sent = [];
+    const m = make({
+      fetchImpl: async (url, init) => {
+        sent.push({ url: String(url), init });
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { lid: "23423462304912@lid", pn: "573001112233@c.us" };
+          },
+        };
+      },
+    });
+    await m.sendText({ to: "573001112233", text: "hola" });
+    assert.equal(JSON.parse(sent[1].init.body).chatId, "23423462304912@lid");
+  });
+
+  it("sendText does not rewrite incoming @lid or @c.us", async () => {
     const sent = [];
     const m = make({
       fetchImpl: async (_url, init) => {
@@ -109,6 +147,8 @@ describe("createWahaMessaging", () => {
     });
     await m.sendText({ to: "573001112233@c.us", text: "x" });
     assert.equal(JSON.parse(sent[0].body).chatId, "573001112233@c.us");
+    await m.sendText({ to: "23423462304912@lid", text: "y" });
+    assert.equal(JSON.parse(sent[1].body).chatId, "23423462304912@lid");
   });
 
   it("sendText throws waha_error on HTTP failure", async () => {
