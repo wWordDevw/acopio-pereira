@@ -244,6 +244,16 @@ describe("server", () => {
     const index = await cat.json();
     assert.equal(index.documentacion, "/api/docs");
   });
+
+  it("openapi lists ordenes routes", async () => {
+    const res = await fetch(`${base}/api/openapi.json`);
+    const spec = await res.json();
+    assert.ok(spec.paths["/api/puntos/{id}/ordenes"]);
+    assert.ok(spec.paths["/api/ordenes/{id}"]);
+    assert.ok(spec.paths["/api/ordenes/{id}/foto"]);
+    const idx = await fetch(`${base}/api`).then((r) => r.json());
+    assert.ok(idx.endpoints.crear_orden);
+  });
 });
 
 describe("server whatsapp number", () => {

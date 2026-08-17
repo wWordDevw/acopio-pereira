@@ -305,6 +305,9 @@ export function createServer({
             productos: "GET /api/productos",
             crear_punto: "POST /api/puntos",
             movimiento: "POST /api/puntos/:id/movimientos",
+            crear_orden: "POST /api/puntos/:id/ordenes",
+            ordenes: "GET /api/puntos/:id/ordenes?dia=",
+            orden: "GET /api/ordenes/:id",
             salud: "GET /api/salud",
           },
         });
