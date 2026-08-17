@@ -2,7 +2,7 @@ import { parseVoz } from "../../api/src/parse-voz.js";
 import { categoriaDesdeTexto, CATEGORIAS } from "../../api/src/categorias.js";
 import { matchZona } from "./zonas.js";
 
-const AYUDA = new Set(["hola", "hi", "buenas", "ayuda", "menu", "start"]);
+const AYUDA = new Set(["hola", "hi", "buenas", "ayuda", "menu", "start", "0"]);
 
 /** Fold to lowercase ASCII (NFD + strip marks). */
 function fold(s) {

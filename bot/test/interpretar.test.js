@@ -28,4 +28,9 @@ describe("interpretar", () => {
     const r = interpretar("hola");
     assert.equal(r.intencion, "ayuda");
   });
+
+  it("ayuda on 0 and menú", () => {
+    assert.equal(interpretar("0").intencion, "ayuda");
+    assert.equal(interpretar("menú").intencion, "ayuda");
+  });
 });

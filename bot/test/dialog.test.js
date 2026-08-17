@@ -81,7 +81,7 @@ describe("dialog", () => {
       incoming({ text: "necesito agua cerca", messageId: "cerca-1" }),
     );
     assert.equal(first.send, true);
-    assert.match(first.text, /barrio o zona/i);
+    assert.match(first.text, /¿dónde\?|Ver todos/);
 
     const second = await handleIncoming(
       incoming({ text: "Cuba", messageId: "cerca-2" }),
@@ -94,10 +94,11 @@ describe("dialog", () => {
     assert.match(consult, /categoria=agua/);
   });
 
-  it("hola contains cobijas en Cuba", async () => {
+  it("hola is numbered start menu", async () => {
     const { handleIncoming } = makeDialog();
     const r = await handleIncoming(incoming({ text: "hola", messageId: "hola-1" }));
     assert.equal(r.send, true);
+    assert.match(r.text, /^1 Comida$/m);
     assert.match(r.text, /cobijas en Cuba/);
   });
 
@@ -165,5 +166,81 @@ describe("dialog", () => {
     assert.equal(r.send, true);
     assert.ok(urls.some((u) => u.includes("categoria=cobijas")), urls.join(" | "));
     assert.match(r.text, /Albergue X/);
+  });
+
+  it("menu path hola → 5 → 1 consults cobijas without zone", async () => {
+    const urls = [];
+    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    await handleIncoming(incoming({ text: "hola", messageId: "m-h" }));
+    const zona = await handleIncoming(incoming({ text: "5", messageId: "m-5" }));
+    assert.match(zona.text, /Cobijas — ¿dónde\?/);
+    const r = await handleIncoming(incoming({ text: "1", messageId: "m-1" }));
+    assert.ok(urls.some((u) => u.includes("categoria=cobijas")));
+    assert.ok(!urls.some((u) => /lat=/.test(u)));
+    assert.match(r.text, /Albergue X/);
+    assert.match(r.text, /\n\n0 Menú$/);
+  });
+
+  it("hola → 5 → 2 → 2 consults Cuba cobijas", async () => {
+    const urls = [];
+    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    await handleIncoming(incoming({ text: "hola", messageId: "b-h" }));
+    await handleIncoming(incoming({ text: "5", messageId: "b-5" }));
+    await handleIncoming(incoming({ text: "2", messageId: "b-2" }));
+    const r = await handleIncoming(incoming({ text: "2", messageId: "b-cuba" }));
+    const consult = urls.find((u) => u.includes("/api/consultar"));
+    assert.match(consult, /categoria=cobijas/);
+    assert.match(consult, /lat=4\.796/);
+    assert.match(r.text, /Albergue X/);
+  });
+
+  it("after results 0 returns start menu", async () => {
+    const { handleIncoming } = makeDialog();
+    await handleIncoming(incoming({ text: "dónde hay pañales", messageId: "r1" }));
+    const r = await handleIncoming(incoming({ text: "0", messageId: "r0" }));
+    assert.match(r.text, /^1 Comida$/m);
+  });
+
+  it("out-of-range number on inicio does not call API or LLM", async () => {
+    let llmCalls = 0;
+    const urls = [];
+    const llm = {
+      complete: async () => {
+        llmCalls += 1;
+        return { text: "{}" };
+      },
+    };
+    const { handleIncoming } = makeDialog({
+      llm,
+      fetchImpl: fakeConsultar({ urls }),
+    });
+    await handleIncoming(incoming({ text: "hola", messageId: "o1" }));
+    const r = await handleIncoming(incoming({ text: "99", messageId: "o2" }));
+    assert.equal(llmCalls, 0);
+    assert.equal(urls.length, 0);
+    assert.match(r.text, /^1 Comida$/m);
+  });
+
+  it("zona screen accepts typed barrio Boston", async () => {
+    const urls = [];
+    const { handleIncoming } = makeDialog({ fetchImpl: fakeConsultar({ urls }) });
+    await handleIncoming(incoming({ text: "hola", messageId: "z1" }));
+    await handleIncoming(incoming({ text: "6", messageId: "z2" }));
+    const r = await handleIncoming(incoming({ text: "Boston", messageId: "z3" }));
+    const consult = urls.find((u) => u.includes("/api/consultar"));
+    assert.match(consult, /categoria=agua/);
+    assert.match(consult, /lat=4\.808/);
+    assert.match(r.text, /Albergue X/);
+  });
+
+  it("media keeps pending menu so 4 still works", async () => {
+    const { handleIncoming } = makeDialog();
+    await handleIncoming(incoming({ text: "hola", messageId: "md1" }));
+    const media = await handleIncoming(
+      incoming({ hasMedia: true, text: "", messageId: "md2" }),
+    );
+    assert.equal(media.text, textoPedirTexto());
+    const zona = await handleIncoming(incoming({ text: "4", messageId: "md3" }));
+    assert.match(zona.text, /Niños — ¿dónde\?/);
   });
 });
