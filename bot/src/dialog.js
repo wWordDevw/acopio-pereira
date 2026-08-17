@@ -2,15 +2,15 @@ import { CATEGORIAS } from "../../api/src/categorias.js";
 import { interpretar } from "./interpretar.js";
 import { matchZona } from "./zonas.js";
 import { consultarPuntos } from "./consultar.js";
+import { isMenuHomeTrigger, parseMenuNumber, resolveMenu } from "./menu.js";
 import {
   textoAyuda,
   textoPedirTexto,
-  textoPedirCategoria,
-  textoPedirZona,
-  textoNoEntendi,
   textoRateLimit,
   textoApiCaida,
   textoRespuesta,
+  textoMenuInicio,
+  textoMenuZona,
 } from "./plantilla.js";
 
 const HOUR_MS = 3_600_000;
@@ -68,7 +68,7 @@ export function createDialog({
   const seenIds = new Set();
   /** @type {Map<string, number[]>} */
   const byFrom = new Map();
-  /** @type {Map<string, { categoria: string|null, zona: object|null, turno: number, actualizadoAt: number }>} */
+  /** @type {Map<string, { pantalla: "inicio"|"zona"|"barrios"|"resultados", categoria: string|null, zona: object|null, turno: number, actualizadoAt: number }>} */
   const pending = new Map();
 
   function countRecent(from, t) {
@@ -93,19 +93,86 @@ export function createDialog({
     return st;
   }
 
-  function replyAsk(from, t, st, categoria, text) {
+  function showInicio(from, t, st) {
+    pending.set(from, {
+      pantalla: "inicio",
+      categoria: null,
+      zona: null,
+      turno: st?.turno ?? 0,
+      actualizadoAt: t,
+    });
+    return { send: true, text: textoAyuda() };
+  }
+
+  function replyAsk(from, t, st, { categoria = null, pantalla = "inicio" } = {}) {
     const turno = (st?.turno ?? 0) + 1;
     if (turno >= MAX_TURNS) {
-      pending.delete(from);
-      return { send: true, text: textoNoEntendi() };
+      pending.set(from, {
+        pantalla: "inicio",
+        categoria: null,
+        zona: null,
+        turno: 0,
+        actualizadoAt: t,
+      });
+      return { send: true, text: textoMenuInicio() };
     }
     pending.set(from, {
-      categoria: categoria ?? st?.categoria ?? null,
-      zona: st?.zona ?? null,
+      pantalla,
+      categoria,
+      zona: pantalla === "zona" ? null : (st?.zona ?? null),
       turno,
       actualizadoAt: t,
     });
+    const text =
+      pantalla === "zona" && categoria
+        ? textoMenuZona(categoria)
+        : textoMenuInicio();
     return { send: true, text };
+  }
+
+  async function consultarYResponder(from, t, { categoria, zona, zonaTexto }) {
+    try {
+      let puntos = await consultarPuntos({
+        apiBase,
+        categoria,
+        zona,
+        fetchImpl,
+      });
+      if (!zona) {
+        puntos = [...puntos].sort(
+          (a, b) => stockOf(b, categoria) - stockOf(a, categoria),
+        );
+      }
+      puntos = puntos.slice(0, 3);
+      pending.set(from, {
+        pantalla: "resultados",
+        categoria: null,
+        zona: null,
+        turno: 0,
+        actualizadoAt: t,
+      });
+      return {
+        send: true,
+        text: textoRespuesta({
+          categoria,
+          zonaNombre: zonaTexto ?? zona?.nombre ?? null,
+          puntos,
+          publicWeb,
+        }),
+      };
+    } catch (err) {
+      if (err?.code === "api_error") {
+        pending.set(from, {
+          pantalla: "resultados",
+          categoria: null,
+          zona: null,
+          turno: 0,
+          actualizadoAt: t,
+        });
+        return { send: true, text: textoApiCaida(publicWeb) };
+      }
+      throw err;
+    }
   }
 
   /**
@@ -144,13 +211,47 @@ export function createDialog({
     }
 
     const raw = usableText(text) ? String(text) : "";
+    const st = getPending(from, t);
+
+    if (isMenuHomeTrigger(raw)) {
+      return showInicio(from, t, st);
+    }
+
+    const n = parseMenuNumber(raw);
+    const menuScreen =
+      st?.pantalla === "inicio" ||
+      st?.pantalla === "zona" ||
+      st?.pantalla === "barrios";
+    if (menuScreen && n !== null) {
+      const resolved = resolveMenu({
+        pantalla: st.pantalla,
+        n,
+        categoria: st.categoria,
+        publicWeb,
+      });
+      if (resolved.kind === "consultar") {
+        return consultarYResponder(from, t, {
+          categoria: resolved.categoria,
+          zona: resolved.zona,
+          zonaTexto: resolved.zona?.nombre ?? null,
+        });
+      }
+      pending.set(from, {
+        pantalla: resolved.next,
+        categoria: resolved.categoria ?? null,
+        zona: resolved.zona ?? null,
+        turno: st.turno,
+        actualizadoAt: t,
+      });
+      return { send: true, text: resolved.text };
+    }
+
     let parsed = interpretar(raw);
 
     if (parsed.intencion === "ayuda") {
-      return { send: true, text: textoAyuda() };
+      return showInicio(from, t, st);
     }
 
-    const st = getPending(from, t);
     if (st?.categoria && !parsed.categoria) {
       const zonaMatch = parsed.zona || matchZona(raw);
       if (zonaMatch) {
@@ -170,7 +271,6 @@ export function createDialog({
       parsed.necesitaCategoria ||
       (parsed.intencion === "otro" && !parsed.categoria)
     ) {
-      const originalIntencion = parsed.intencion;
       try {
         const result = await llm.complete({
           messages: [
@@ -181,14 +281,10 @@ export function createDialog({
         });
         const extracted = parseLlmJson(result?.text);
         if (!extracted) {
-          const fallback =
-            originalIntencion === "otro"
-              ? textoNoEntendi()
-              : textoPedirCategoria();
-          return replyAsk(from, t, st, parsed.categoria, fallback);
+          return replyAsk(from, t, st, { categoria: null, pantalla: "inicio" });
         }
         if (extracted.intencion === "ayuda") {
-          return { send: true, text: textoAyuda() };
+          return showInicio(from, t, st);
         }
         if (extracted.categoria && KNOWN.has(extracted.categoria)) {
           parsed = {
@@ -210,60 +306,29 @@ export function createDialog({
           }
         }
         if (!parsed.categoria) {
-          return replyAsk(from, t, st, null, textoPedirCategoria());
+          return replyAsk(from, t, st, { categoria: null, pantalla: "inicio" });
         }
       } catch {
-        const fallback =
-          originalIntencion === "otro"
-            ? textoNoEntendi()
-            : textoPedirCategoria();
-        return replyAsk(from, t, st, parsed.categoria, fallback);
+        return replyAsk(from, t, st, { categoria: null, pantalla: "inicio" });
       }
     }
 
     if (parsed.necesitaZona && !parsed.zona) {
-      return replyAsk(from, t, st, parsed.categoria, textoPedirZona());
+      return replyAsk(from, t, st, {
+        categoria: parsed.categoria,
+        pantalla: "zona",
+      });
     }
 
     if (!parsed.categoria) {
-      const turns = (st?.turno ?? 0) + 1;
-      if (turns >= MAX_TURNS) {
-        pending.delete(from);
-        return { send: true, text: textoNoEntendi() };
-      }
-      return replyAsk(from, t, st, st?.categoria ?? null, textoPedirCategoria());
+      return replyAsk(from, t, st, { categoria: null, pantalla: "inicio" });
     }
 
-    try {
-      let puntos = await consultarPuntos({
-        apiBase,
-        categoria: parsed.categoria,
-        zona: parsed.zona,
-        fetchImpl,
-      });
-      if (!parsed.zona) {
-        puntos = [...puntos].sort(
-          (a, b) => stockOf(b, parsed.categoria) - stockOf(a, parsed.categoria),
-        );
-      }
-      puntos = puntos.slice(0, 3);
-      pending.delete(from);
-      return {
-        send: true,
-        text: textoRespuesta({
-          categoria: parsed.categoria,
-          zonaNombre: parsed.zonaTexto ?? parsed.zona?.nombre ?? null,
-          puntos,
-          publicWeb,
-        }),
-      };
-    } catch (err) {
-      if (err?.code === "api_error") {
-        pending.delete(from);
-        return { send: true, text: textoApiCaida(publicWeb) };
-      }
-      throw err;
-    }
+    return consultarYResponder(from, t, {
+      categoria: parsed.categoria,
+      zona: parsed.zona,
+      zonaTexto: parsed.zonaTexto ?? parsed.zona?.nombre ?? null,
+    });
   }
 
   return { handleIncoming };
