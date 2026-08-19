@@ -95,6 +95,16 @@ Antes era cache-first sin revalidar, y por eso un cambio ya desplegado podía
 quedar invisible: el navegador servía la copia vieja para siempre. Si tocas
 `sw.js`, no vuelvas a esa estrategia.
 
+### Escritorio
+
+A partir de **64rem** la ficha se reordena como pantalla de gestión: barra de
+centros de acopio a la izquierda —para saltar a otro sin volver al mapa—,
+acciones compactas arriba a la derecha, y la tabla gana las columnas Estado,
+Mínimo y Movido, que en un teléfono estorban.
+
+Debajo de 64rem no cambia nada: la barra no se pinta ni se pide la lista de
+centros, y la frescura y la nota de estado siguen inline bajo el nombre.
+
 ## Bot WhatsApp
 
 El bot (`bot/`) usa un transporte intercambiable. Por defecto es **WAHA** (`WHATSAPP_PROVIDER=waha`) contra el WAHA ya desplegado en `https://waha.vowtech.lat`. No hay servicio `waha` ni contenedor Meta en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).

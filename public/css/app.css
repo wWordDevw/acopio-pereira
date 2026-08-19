@@ -1299,3 +1299,263 @@ body.is-ficha-open {
   font-variant-numeric: tabular-nums;
   font-size: 1.15rem;
 }
+
+/* ── Escritorio ────────────────────────────────────────────────────────────
+   En un teléfono la página es una columna y se queda como está. A partir de
+   64rem entra la barra de acopios a la izquierda —para saltar a otro centro
+   sin volver al mapa— y la tabla gana las columnas que en móvil estorban.  */
+
+.puntos-nav {
+  display: none;
+}
+
+.bodega-tools {
+  margin-top: var(--sp-3);
+}
+
+.bodega-buscar,
+.puntos-nav-buscar {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-2);
+  padding: 0.45rem 0.6rem;
+}
+
+.bodega-buscar:focus-visible,
+.puntos-nav-buscar:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.bodega-conteo {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-1);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 64rem) {
+  .wrap-punto {
+    width: min(78rem, calc(100% - 2.5rem));
+    display: grid;
+    grid-template-columns: 17rem minmax(0, 1fr);
+    gap: var(--sp-5);
+    align-items: start;
+  }
+
+  .puntos-nav {
+    display: block;
+    position: sticky;
+    top: var(--sp-4);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    background: var(--card);
+    padding: var(--sp-3);
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+  }
+
+  .puntos-nav-kicker {
+    margin: 0 0 var(--sp-2);
+    font-size: var(--fs-0);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .puntos-nav-lista {
+    list-style: none;
+    margin: var(--sp-2) 0 0;
+    padding: 0;
+  }
+
+  .puntos-nav-lista a {
+    display: block;
+    padding: 0.45rem 0.55rem;
+    border-radius: 4px;
+    color: var(--ink-2);
+    text-decoration: none;
+    font-size: var(--fs-1);
+    line-height: 1.3;
+  }
+
+  .puntos-nav-lista a:hover {
+    background: var(--surface);
+  }
+
+  .puntos-nav-lista a[aria-current="page"] {
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
+  }
+
+  .puntos-nav-nombre {
+    display: block;
+    font-weight: 600;
+    color: inherit;
+  }
+
+  .puntos-nav-meta {
+    display: block;
+    font-size: var(--fs-0);
+    color: var(--muted);
+  }
+
+  .puntos-nav-lista a[aria-current="page"] .puntos-nav-meta {
+    color: var(--faint);
+  }
+
+  .puntos-nav-vacio {
+    padding: 0.4rem 0.55rem;
+    font-size: var(--fs-1);
+    color: var(--muted);
+  }
+
+  /* La cabecera se comporta como la de una pantalla de gestión: título a la
+     izquierda, acción principal a la derecha. */
+  .punto-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: var(--sp-4);
+  }
+
+  .punto-head .nav-back,
+  .punto-head .brand {
+    grid-column: 1 / -1;
+  }
+
+  .bodega-head {
+    align-items: center;
+  }
+
+  .bodega-tools {
+    margin-top: 0;
+    justify-self: end;
+    width: 18rem;
+  }
+
+  .bodega-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--sp-4);
+  }
+
+  .bodega-total {
+    grid-column: 1;
+  }
+
+  /* Producto · Estado · Existencia · Mínimo · Movido.
+     La categoría no lleva columna: ya es el encabezado del grupo. */
+  .stock-head,
+  .stock-row {
+    grid-template-columns: minmax(0, 1fr) 7rem 6rem 5rem 7rem;
+  }
+
+  .stock-head span:last-child,
+  .stock-row .stock-qty {
+    text-align: right;
+  }
+
+  .stock-cel {
+    display: block;
+    font-size: var(--fs-1);
+    color: var(--muted);
+  }
+
+  .stock-cel--min {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stock-cel--when {
+    text-align: right;
+  }
+
+  .stock-cel--when.is-stale {
+    color: var(--warn);
+    font-weight: 600;
+  }
+
+  /* En escritorio la frescura y el mínimo viven en su columna. */
+  .stock-row .stock-when,
+  .stock-row .stock-note {
+    display: none;
+  }
+
+  .stock-estado {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    font-size: var(--fs-0);
+    font-weight: 700;
+  }
+
+  .stock-row.is-agotado .stock-estado {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .stock-row.is-bajo .stock-estado {
+    background: var(--warn);
+    color: #fff;
+  }
+
+  /* La acción principal sube y se vuelve compacta, como en una pantalla de
+     gestión. Los paneles que despliega siguen apareciendo debajo, a lo ancho.
+     En móvil no se toca nada: siguen siendo dos bloques al pie. */
+  .punto-main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .punto-head {
+    order: 1;
+  }
+
+  .registrar {
+    order: 2;
+    margin-top: 0;
+  }
+
+  .bodega {
+    order: 3;
+  }
+
+  #bodega-conteo {
+    order: 4;
+  }
+
+  .movs-fold {
+    order: 5;
+  }
+
+  #registrar-acciones {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  #registrar-acciones .btn {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 0.5rem 1.1rem;
+    font-size: var(--fs-2);
+    border-width: 1px;
+    border-radius: 4px;
+  }
+}
+
+
+@media (max-width: 63.99rem) {
+  .stock-cel {
+    display: none;
+  }
+}
