@@ -41,6 +41,7 @@ import { parseVoz } from "./parse-voz.js";
 import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
 import { consultarInventario } from "./inventario.js";
 import { buildOpenApi } from "./openapi.js";
+import { buildPlaceFeed, FEED_TTL } from "./cabuya.js";
 import { swaggerHtml, swaggerInitJs } from "./swagger-html.js";
 import {
   candidatosParecidos,
@@ -259,6 +260,7 @@ export function createServer({
   trustProxy = false,
   whatsappNumber = null,
   fotosDir,
+  publicWeb = "https://insumos.vowtech.lat",
 } = {}) {
   const photoDir = fotosDir || db.fotosDir;
   const whatsapp = normalizeWhatsappNumber(whatsappNumber);
@@ -316,6 +318,16 @@ export function createServer({
             orden: "GET /api/ordenes/:id",
             salud: "GET /api/salud",
           },
+        });
+        return;
+      }
+
+      // Feed Cabuya v0.1 (L2). Proyección de solo lectura; el manifiesto que
+      // lo anuncia vive en public/.well-known/cabuya.json.
+      if (req.method === "GET" && path === "/api/cabuya/places.json") {
+        const feed = buildPlaceFeed(db, { baseUrl: publicWeb });
+        json(res, 200, feed, {
+          "cache-control": `public, max-age=${FEED_TTL}`,
         });
         return;
       }
@@ -906,6 +918,7 @@ export function listen(options = {}) {
     whatsappNumber:
       options.whatsappNumber ?? process.env.WHATSAPP_PUBLIC_NUMBER ?? null,
     fotosDir,
+    publicWeb: options.publicWeb ?? process.env.PUBLIC_WEB ?? undefined,
   });
   const port = Number(options.port ?? process.env.PORT ?? 3000);
   server.listen(port, options.host ?? "0.0.0.0");
