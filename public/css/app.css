@@ -1300,6 +1300,28 @@ body.is-ficha-open {
   font-size: 1.15rem;
 }
 
+/* El botón de cerrar de un panel es una acción secundaria: no debe ocupar el
+   ancho del encabezado ni aplastar el título contra el borde. */
+.registrar-head {
+  gap: var(--sp-3);
+}
+
+.registrar-head h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-4);
+}
+
+.registrar-head .btn-compact {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0.4rem 0.9rem;
+  font-size: var(--fs-2);
+  border-width: 1px;
+  border-radius: 4px;
+}
+
 /* ── Escritorio ────────────────────────────────────────────────────────────
    En un teléfono la página es una columna y se queda como está. A partir de
    64rem entra la barra de acopios a la izquierda —para saltar a otro centro
@@ -1340,7 +1362,7 @@ body.is-ficha-open {
 
 @media (min-width: 64rem) {
   .wrap-punto {
-    width: min(78rem, calc(100% - 2.5rem));
+    width: min(140rem, calc(100% - 3rem));
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr);
     gap: var(--sp-5);
@@ -1418,11 +1440,26 @@ body.is-ficha-open {
 
   /* La cabecera se comporta como la de una pantalla de gestión: título a la
      izquierda, acción principal a la derecha. */
+  /* La segunda columna se acota: con `auto` una nota larga se llevaba todo el
+     ancho y dejaba el título en cero, encimándose el texto. */
   .punto-head {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     align-items: start;
     column-gap: var(--sp-4);
+  }
+
+  .punto-head h1 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .punto-head #nota {
+    min-width: 0;
+    max-width: 30rem;
+    justify-self: end;
+    text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .punto-head .nav-back,
@@ -1551,11 +1588,138 @@ body.is-ficha-open {
     border-width: 1px;
     border-radius: 4px;
   }
+
+  /* Formulario de entrada y salida. En un teléfono cada control ocupa el
+     ancho porque se toca con el pulgar; en un escritorio eso convierte
+     elegir «Arroz» en una pantalla entera de scroll. */
+  .registrar-panel {
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    background: var(--card);
+    padding: var(--sp-4);
+  }
+
+  .toggle {
+    grid-template-columns: repeat(2, minmax(0, 9rem));
+    gap: 0;
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    overflow: hidden;
+    width: max-content;
+  }
+
+  .toggle .btn {
+    border: 0;
+    border-radius: 0;
+    padding: 0.5rem 1rem;
+    font-size: var(--fs-2);
+  }
+
+  .cat-tiles {
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: var(--sp-2);
+  }
+
+  .cat-tile {
+    padding: 0.5rem 0.7rem;
+  }
+
+  /* Rejilla de productos: se ve el catálogo de un vistazo. */
+  .productos-lista {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--sp-2);
+  }
+
+  .producto-row .btn {
+    padding: 0.5rem 0.7rem;
+    font-size: var(--fs-2);
+    text-align: left;
+    border-width: 1px;
+    border-radius: 4px;
+  }
+
+  .producto-row .btn-plus {
+    text-align: center;
+    min-width: 3rem;
+  }
+
+  .producto-nuevo {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    max-width: 46rem;
+  }
+
+  .producto-nuevo .btn,
+  #productos-cerrar,
+  .dictar-box .btn {
+    width: auto;
+    padding: 0.5rem 1rem;
+    font-size: var(--fs-2);
+    border-width: 1px;
+    border-radius: 4px;
+  }
+
+  #productos-cerrar,
+  .dictar-box .btn {
+    justify-self: start;
+  }
+
+  .dictar-box {
+    max-width: 46rem;
+    border-top-width: 1px;
+    border-top-color: var(--line-soft);
+  }
+
+  .dictar-box textarea {
+    min-height: 4.5rem;
+  }
+
+  .revision-lista {
+    max-width: 46rem;
+  }
 }
 
 
 @media (max-width: 63.99rem) {
   .stock-cel {
     display: none;
+  }
+}
+
+/* ── Registrar ─────────────────────────────────────────────────────────────
+   El producto y su +5 eran dos cajas sueltas con un hueco en medio, y no se
+   leía que el +5 perteneciera al producto de al lado. Ahora son un control. */
+.producto-row {
+  gap: 0;
+  border: 2px solid var(--line);
+  border-radius: 0.55rem;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.producto-row .btn {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.producto-row .btn-plus {
+  border-left: 2px solid var(--line);
+  min-width: 3.6rem;
+  text-align: center;
+}
+
+.producto-row .btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
+
+@media (min-width: 64rem) {
+  /* El nombre ocupaba la fila entera por `grid-column: 1 / -1`, así que las
+     tres columnas de escritorio nunca llegaban a formarse y Foto y Crear
+     caían a una segunda fila. */
+  .producto-nuevo input[type="text"] {
+    grid-column: auto;
   }
 }
