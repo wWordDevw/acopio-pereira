@@ -1686,12 +1686,10 @@ body.is-ficha-open {
   }
 }
 
-/* ── Registrar: producto y +5 como un solo control ─────────────────────────
-   Antes eran dos cajas sueltas con un hueco en medio, y a simple vista no se
-   leía que el +5 perteneciera al producto de al lado. */
+/* ── Registrar ─────────────────────────────────────────────────────────────
+   El producto y su +5 eran dos cajas sueltas con un hueco en medio, y no se
+   leía que el +5 perteneciera al producto de al lado. Ahora son un control. */
 .producto-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0;
   border: 2px solid var(--line);
   border-radius: 0.55rem;
@@ -1704,15 +1702,12 @@ body.is-ficha-open {
   border-radius: 0;
   background: transparent;
   text-align: left;
-  padding: 0.7rem 0.75rem;
-  font-size: var(--fs-2);
 }
 
 .producto-row .btn-plus {
   border-left: 2px solid var(--line);
   min-width: 3.6rem;
   text-align: center;
-  font-weight: 700;
 }
 
 .producto-row .btn:focus-visible {
@@ -1720,42 +1715,11 @@ body.is-ficha-open {
   outline-offset: -3px;
 }
 
-/* La fila de crear: el nombre manda, foto y crear son accesorios. */
-.producto-nuevo {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.producto-nuevo .producto-foto-btn,
-.producto-nuevo button[type="submit"] {
-  width: auto;
-  white-space: nowrap;
-  padding: 0.6rem 0.9rem;
-}
-
 @media (min-width: 64rem) {
-  /* En escritorio el formulario aprovecha el ancho en vez de ser una columna
-     larguísima que obliga a bajar. */
-  .productos-lista {
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  }
-
-  .cat-tiles {
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  }
-
-  .cat-tile {
-    min-height: 0;
-    padding: 0.55rem 0.7rem;
-  }
-
-  .producto-nuevo {
-    max-width: 40rem;
-  }
-
-  .dictar-box textarea {
-    max-width: 40rem;
+  /* El nombre ocupaba la fila entera por `grid-column: 1 / -1`, así que las
+     tres columnas de escritorio nunca llegaban a formarse y Foto y Crear
+     caían a una segunda fila. */
+  .producto-nuevo input[type="text"] {
+    grid-column: auto;
   }
 }
