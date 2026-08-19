@@ -85,6 +85,16 @@ dice a alguien que este punto necesita algo, y por eso la consulta de
 inventario ya no los descarta. Quien solo quiera existencias positivas filtra
 por `stock > 0`, como ya hacen `consultar.js` y el bot.
 
+### Despliegue del front y caché
+
+El service worker sirve los estáticos con **stale-while-revalidate** y la
+navegación con **red primero**. Es decir: un despliegue se ve en la siguiente
+carga sin que nadie tenga que acordarse de subir `CACHE` en `sw.js`.
+
+Antes era cache-first sin revalidar, y por eso un cambio ya desplegado podía
+quedar invisible: el navegador servía la copia vieja para siempre. Si tocas
+`sw.js`, no vuelvas a esa estrategia.
+
 ## Bot WhatsApp
 
 El bot (`bot/`) usa un transporte intercambiable. Por defecto es **WAHA** (`WHATSAPP_PROVIDER=waha`) contra el WAHA ya desplegado en `https://waha.vowtech.lat`. No hay servicio `waha` ni contenedor Meta en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).
