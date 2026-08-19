@@ -1,0 +1,6 @@
+# Insumos Pereira — https://insumos.vowtech.lat
+# El feed Cabuya es público y reutilizable bajo CC0-1.0.
+# Consentimiento de reuso: /.well-known/cabuya.json (permitted_use).
+
+User-agent: *
+Allow: /

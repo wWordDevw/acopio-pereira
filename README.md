@@ -44,6 +44,29 @@ curl http://127.0.0.1:3000/api/puntos
 
 GET tiene CORS `*`. Sin API key. Detalle de errores, categorías y rate limits está en Swagger.
 
+## Protocolo Cabuya
+
+Insumos Pereira publica sus puntos en el [Protocolo Cabuya](https://cabuya.org)
+0.1, para que otras apps del ecosistema puedan leerlos sin scraping.
+
+- Manifiesto (L1): `GET /.well-known/cabuya.json`
+- Feed de lugares (L2): `GET /api/cabuya/places.json`
+
+`publisher_id` **insumos-pereira**, datos bajo **CC0-1.0**, con
+`permitted_use` = display, aggregate, redistribute, ai_answer.
+
+Reglas que el feed respeta y conviene no romper al tocarlo:
+
+- Los valores de contacto **nunca** viajan (§7.2). El feed lleva
+  `contact_available` y el enlace a la ficha; el teléfono se queda aquí.
+- `last_updated` sale del dato más reciente, **nunca** de la hora de la
+  petición (§3.1 lo llama anti-patrón «always-now»).
+- `last_confirmed_at` solo se llena con un movimiento de inventario: editar un
+  punto no es confirmarlo (CR-1). Sin movimientos va `null`, que es dato honesto.
+- Solo se publican puntos cuya nota trae un tipo reconocido (Acopio o
+  Albergue). Los registros de prueba no entran: §7.5 trata los lugares
+  inventados como causal de suspensión del registro.
+
 ## Bot WhatsApp
 
 El bot (`bot/`) usa un transporte intercambiable. Por defecto es **WAHA** (`WHATSAPP_PROVIDER=waha`) contra el WAHA ya desplegado en `https://waha.vowtech.lat`. No hay servicio `waha` ni contenedor Meta en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).

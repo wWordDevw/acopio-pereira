@@ -466,6 +466,58 @@ export function buildOpenApi({ serverUrl }) {
           },
         },
       },
+      "/api/cabuya/places.json": {
+        get: {
+          tags: ["Consulta"],
+          summary: "Feed de lugares en Protocolo Cabuya 0.1 (nivel L2)",
+          description:
+            "Proyección de solo lectura de los puntos, en el esquema place " +
+            "de Cabuya 0.1. `last_updated` refleja el dato más reciente, no " +
+            "la hora de la petición. Los valores de contacto no viajan " +
+            "(§7.2) y solo se publican puntos con tipo reconocido (§7.5). " +
+            "El manifiesto que anuncia este feed está en " +
+            "/.well-known/cabuya.json.",
+          operationId: "getCabuyaPlaces",
+          responses: {
+            200: {
+              description: "Feed conforme al esquema place-feed 0.1.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: [
+                      "last_updated",
+                      "ttl",
+                      "version",
+                      "publisher_id",
+                      "license",
+                      "data",
+                    ],
+                    properties: {
+                      last_updated: { type: "string", format: "date-time" },
+                      ttl: { type: "integer" },
+                      version: { type: "string", example: "0.1.0" },
+                      publisher_id: { type: "string", example: "insumos-pereira" },
+                      license: { type: "string", example: "CC0-1.0" },
+                      permitted_use: {
+                        type: "array",
+                        items: { type: "string" },
+                      },
+                      data: {
+                        type: "object",
+                        required: ["places"],
+                        properties: {
+                          places: { type: "array", items: { type: "object" } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       "/api/categorias": {
         get: {
           tags: ["Consulta"],

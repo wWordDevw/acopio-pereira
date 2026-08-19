@@ -1,0 +1,24 @@
+{
+  "protocol": {
+    "name": "cabuya",
+    "spec_version": "0.1.0"
+  },
+  "publisher": {
+    "publisher_id": "insumos-pereira",
+    "canonical_url": "https://insumos.vowtech.lat",
+    "name": "Insumos Pereira"
+  },
+  "conformance_target": "L2",
+  "feeds": [
+    {
+      "name": "places",
+      "url": "https://insumos.vowtech.lat/api/cabuya/places.json",
+      "entity": "place",
+      "profile": "core"
+    }
+  ],
+  "license": "CC0-1.0",
+  "permitted_use": ["display", "aggregate", "redistribute", "ai_answer"],
+  "events": ["sismo-eje-cafetero-2026"],
+  "languages": ["es"]
+}
