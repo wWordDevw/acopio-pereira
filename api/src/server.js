@@ -42,6 +42,7 @@ import { CATEGORIAS, ETIQUETAS } from "./categorias.js";
 import { consultarInventario } from "./inventario.js";
 import { buildOpenApi } from "./openapi.js";
 import { buildPlaceFeed, FEED_TTL } from "./cabuya.js";
+import { estadoStock, minimoDe } from "./minimos.js";
 import { swaggerHtml, swaggerInitJs } from "./swagger-html.js";
 import {
   candidatosParecidos,
@@ -167,6 +168,9 @@ function publicPunto(row, inventario = []) {
         ? `/api/productos/${i.producto_id}/foto`
         : null,
       stock: i.stock,
+      minimo: i.minimo ?? minimoDe(i.categoria),
+      estado: estadoStock(i.stock, i.minimo ?? minimoDe(i.categoria)),
+      movido_at: i.movido_at || null,
     })),
     tiene_stock: inventario.some((i) => i.stock > 0),
     ...(row.distancia_km != null ? { distancia_km: row.distancia_km } : {}),

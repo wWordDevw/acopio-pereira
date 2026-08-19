@@ -102,16 +102,78 @@ function itemLabel(item) {
   return "Sin detalle";
 }
 
-function renderBodega(inventario, filtro, { onFilter, onAddInCat }) {
+// Cuánto hace que se movió una línea. El dato crudo es lo que separa un
+// inventario confiable de una lista vieja, así que se muestra siempre y se
+// resalta cuando pasa de un día.
+const STALE_MS = 24 * 60 * 60 * 1000;
+
+function haceCuanto(iso) {
+  if (!iso) return { texto: "sin registro", viejo: true };
+  const d = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+  if (Number.isNaN(d.getTime())) return { texto: "", viejo: false };
+  const ms = Date.now() - d.getTime();
+  const min = Math.max(0, Math.round(ms / 60000));
+  if (min < 60) return { texto: `hace ${min} min`, viejo: false };
+  const h = Math.round(min / 60);
+  if (h < 24) return { texto: `hace ${h} h`, viejo: false };
+  const dias = Math.round(h / 24);
+  return { texto: `hace ${dias} d`, viejo: true };
+}
+
+const TOPE_POR_GRUPO = 4;
+const expandidos = new Set();
+
+function filaStock(item) {
+  const row = document.createElement("div");
+  row.className = "stock-row";
+  if (item.estado === "agotado") row.classList.add("is-agotado");
+  if (item.estado === "bajo") row.classList.add("is-bajo");
+
+  const name = document.createElement("div");
+  name.className = "stock-name";
+  name.append(document.createTextNode(itemLabel(item)));
+  if (item.estado === "agotado" || item.estado === "bajo") {
+    const nota = document.createElement("small");
+    nota.className = "stock-note";
+    nota.textContent =
+      item.estado === "agotado"
+        ? "Se acabó"
+        : `Queda poco · mínimo ${item.minimo}`;
+    name.append(nota);
+  }
+
+  const qty = document.createElement("div");
+  qty.className = "stock-qty";
+  qty.setAttribute("aria-label", `${item.stock} unidades`);
+  qty.append(document.createTextNode(String(item.stock)));
+  const u = document.createElement("span");
+  u.textContent = "u";
+  qty.append(u);
+
+  const when = document.createElement("small");
+  when.className = "stock-when";
+  const h = haceCuanto(item.movido_at);
+  if (h.viejo) when.classList.add("is-stale");
+  when.textContent = h.texto;
+  name.append(when);
+
+  row.append(name, qty);
+  return row;
+}
+
+function renderBodega(inventario, filtro, { onFilter, onAddInCat, repaint }) {
   const chips = qs("bodega-chips");
   const aisles = qs("stock");
   const totalEl = qs("bodega-total");
+  const statsEl = qs("bodega-stats");
   const groups = groupInventario(inventario);
-  const visible = filtro ? groups.filter((g) => g.slug === filtro) : groups;
-  const units = groups.reduce((sum, g) => sum + g.total, 0);
+  const todas = groups.flatMap((g) => g.items);
+  const units = todas.reduce((sum, i) => sum + i.stock, 0);
+  const faltan = todas.filter((i) => i.estado !== "ok");
 
   chips.replaceChildren();
   aisles.replaceChildren();
+  if (statsEl) statsEl.replaceChildren();
   chips.hidden = groups.length === 0;
 
   if (groups.length === 0) {
@@ -128,103 +190,119 @@ function renderBodega(inventario, filtro, { onFilter, onAddInCat }) {
     return;
   }
 
-  totalEl.textContent = units === 1 ? "1 unidad" : `${units} unidades`;
+  totalEl.textContent = "";
 
-  const allChip = document.createElement("button");
-  allChip.type = "button";
-  allChip.className = "chip" + (filtro ? "" : " is-on");
-  allChip.setAttribute("role", "tab");
-  allChip.setAttribute("aria-selected", filtro ? "false" : "true");
-  allChip.textContent = "Todos";
-  allChip.addEventListener("click", () => onFilter(null));
-  chips.append(allChip);
-
-  for (const group of groups) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip" + (filtro === group.slug ? " is-on" : "");
-    chip.dataset.cat = group.slug;
-    chip.setAttribute("role", "tab");
-    chip.setAttribute("aria-selected", filtro === group.slug ? "true" : "false");
-    const mark = document.createElement("span");
-    mark.className = "chip-mark";
-    mark.textContent = CAT_MARK[group.slug] || group.slug.slice(0, 2);
-    const text = document.createElement("span");
-    text.textContent = `${group.label} ${group.total}`;
-    chip.append(mark, text);
-    chip.addEventListener("click", () =>
-      onFilter(filtro === group.slug ? null : group.slug),
-    );
-    chips.append(chip);
+  if (statsEl) {
+    const reciente = todas
+      .map((i) => i.movido_at)
+      .filter(Boolean)
+      .sort()
+      .pop();
+    const h = haceCuanto(reciente);
+    for (const [k, v, stale] of [
+      ["Unidades", units.toLocaleString("es-CO"), false],
+      ["Productos", String(todas.length), false],
+      ["Actualizado", h.texto, h.viejo],
+    ]) {
+      const cell = document.createElement("div");
+      cell.className = "bodega-stat";
+      const dt = document.createElement("dt");
+      dt.textContent = k;
+      const dd = document.createElement("dd");
+      dd.textContent = v;
+      if (stale) dd.classList.add("is-stale");
+      cell.append(dt, dd);
+      statsEl.append(cell);
+    }
   }
 
-  if (filtro && visible.length === 0) {
+  const chip = (texto, cuenta, activo, onClick) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (activo ? " is-on" : "");
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", activo ? "true" : "false");
+    b.append(document.createTextNode(texto));
+    if (cuenta != null) {
+      const c = document.createElement("span");
+      c.className = "chip-count";
+      c.textContent = String(cuenta);
+      b.append(c);
+    }
+    b.addEventListener("click", onClick);
+    chips.append(b);
+  };
+
+  chip("Todo", todas.length, !filtro, () => onFilter(null));
+  if (faltan.length) {
+    chip("Falta", faltan.length, filtro === "__falta", () =>
+      onFilter(filtro === "__falta" ? null : "__falta"),
+    );
+  }
+  for (const g of groups) {
+    chip(g.label, g.items.length, filtro === g.slug, () =>
+      onFilter(filtro === g.slug ? null : g.slug),
+    );
+  }
+
+  const head = document.createElement("div");
+  head.className = "stock-head";
+  for (const t of ["Producto", "Existencia"]) {
+    const s = document.createElement("span");
+    s.textContent = t;
+    head.append(s);
+  }
+  aisles.append(head);
+
+  // «Falta» atraviesa las categorías: es una sola lista, ordenada por urgencia.
+  if (filtro === "__falta") {
+    const orden = { agotado: 0, bajo: 1 };
+    for (const item of faltan.slice().sort(
+      (a, b) => orden[a.estado] - orden[b.estado] || a.stock - b.stock,
+    )) {
+      aisles.append(filaStock(item));
+    }
+    return;
+  }
+
+  const visibles = filtro ? groups.filter((g) => g.slug === filtro) : groups;
+  if (filtro && visibles.length === 0) {
     onFilter(null);
     return;
   }
 
-  for (const group of visible) {
-    const aisle = document.createElement("section");
-    aisle.className = "aisle";
-    aisle.dataset.cat = group.slug;
-    aisle.id = `aisle-${group.slug}`;
+  for (const group of visibles) {
+    const sec = document.createElement("div");
+    sec.className = "stock-group";
+    sec.textContent = `${group.label} · ${group.total.toLocaleString("es-CO")} u`;
+    aisles.append(sec);
 
-    const head = document.createElement("div");
-    head.className = "aisle-head";
+    // Lo escaso primero: agotado, luego poco, luego el resto.
+    const peso = { agotado: 0, bajo: 1, ok: 2 };
+    const items = group.items
+      .slice()
+      .sort((a, b) => peso[a.estado] - peso[b.estado] || b.stock - a.stock);
 
-    const titleWrap = document.createElement("div");
-    titleWrap.className = "aisle-title";
-    const mark = document.createElement("span");
-    mark.className = "cat-mark";
-    mark.textContent = CAT_MARK[group.slug] || group.slug.slice(0, 2);
-    const name = document.createElement("h3");
-    name.className = "aisle-name";
-    name.textContent = group.label;
-    titleWrap.append(mark, name);
+    const abierto = filtro === group.slug || expandidos.has(group.slug);
+    const mostrar = abierto ? items : items.slice(0, TOPE_POR_GRUPO);
+    for (const item of mostrar) aisles.append(filaStock(item));
 
-    const qty = document.createElement("p");
-    qty.className = "aisle-qty";
-    qty.setAttribute("aria-label", `${group.total} unidades`);
-    qty.textContent = String(group.total);
-
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "btn btn-ghost btn-aisle-add";
-    add.textContent = "Agregar";
-    add.addEventListener("click", () => onAddInCat(group.slug, group.label));
-
-    head.append(titleWrap, qty, add);
-
-    const bins = document.createElement("div");
-    bins.className = "bins";
-    if (group.items.length === 1) bins.classList.add("is-single");
-
-    for (const item of group.items) {
-      const bin = document.createElement("article");
-      bin.className = "bin";
-      if (item.foto && item.producto_id) {
-        const img = document.createElement("img");
-        img.src = item.foto;
-        img.alt = "";
-        img.className = "bin-foto";
-        img.addEventListener("error", () => img.remove());
-        bin.append(img);
-      }
-      const label = document.createElement("p");
-      label.className = "bin-name";
-      label.textContent = itemLabel(item);
-      const count = document.createElement("p");
-      count.className = "bin-qty";
-      count.setAttribute("aria-label", `${item.stock} unidades`);
-      count.textContent = String(item.stock);
-      bin.append(label, count);
-      bins.append(bin);
+    if (!abierto && items.length > TOPE_POR_GRUPO) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "stock-more";
+      more.textContent = `Ver los ${items.length} de ${group.label.toLowerCase()}`;
+      more.addEventListener("click", () => {
+        expandidos.add(group.slug);
+        repaint();
+      });
+      aisles.append(more);
     }
 
-    aisle.append(head, bins);
-    aisles.append(aisle);
+
   }
 }
+
 
 function renderMovs(list, movimientos, onOpenOrden) {
   list.replaceChildren();
@@ -394,6 +472,9 @@ async function main() {
         if (lastData) paint(lastData);
       },
       onAddInCat: openRegistrarOn,
+      repaint: () => {
+        if (lastData) paint(lastData);
+      },
     });
     renderMovs(qs("movs"), data.movimientos, openOrdenFicha);
     loadOrdenes();

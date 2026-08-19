@@ -125,8 +125,13 @@ describe("server", () => {
     assert.equal(sale.status, 201);
     assert.equal(sale.body.aplicados[0].cantidad, 4);
     assert.equal(sale.body.aplicados[0].ajustado, true);
+    // Al agotarse, la línea no desaparece: se queda en 0 y marcada como
+    // agotada. Es lo que le dice a alguien que este punto necesita agua.
+    const linea = sale.body.inventario.find((i) => i.categoria === "agua");
+    assert.equal(linea.stock, 0);
+    assert.equal(linea.estado, "agotado");
     assert.equal(
-      sale.body.inventario.find((i) => i.categoria === "agua"),
+      sale.body.inventario.find((i) => i.categoria === "inexistente"),
       undefined,
     );
   });

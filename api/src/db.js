@@ -8,6 +8,7 @@ import {
   aliasesOf,
   slugNombre,
 } from "./productos.js";
+import { minimoDe } from "./minimos.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INIT_SQL = readFileSync(join(__dirname, "../sql/001_init.sql"), "utf8");
@@ -34,6 +35,21 @@ function migrateProductos(db) {
       "alter table movimientos add column producto_id text references productos(id)",
     );
   }
+  // Umbral de existencias. Editable por producto; arranca con el valor de su
+  // categoría para que ningún producto quede sin piso.
+  if (!hasColumn(db, "productos", "minimo")) {
+    db.exec("alter table productos add column minimo integer");
+  }
+  const sinMinimo = db
+    .prepare("select id, categoria from productos where minimo is null")
+    .all();
+  if (sinMinimo.length) {
+    const set = db.prepare("update productos set minimo = ? where id = ?");
+    const aplicar = db.transaction((filas) => {
+      for (const f of filas) set.run(minimoDe(f.categoria), f.id);
+    });
+    aplicar(sinMinimo);
+  }
 }
 
 function migrateOrdenes(db) {
@@ -51,8 +67,8 @@ function migrateOrdenes(db) {
 
 function seedProductos(db) {
   const insert = db.prepare(
-    `insert or ignore into productos (id, slug, nombre, categoria, aliases)
-     values (?, ?, ?, ?, ?)`,
+    `insert or ignore into productos (id, slug, nombre, categoria, aliases, minimo)
+     values (?, ?, ?, ?, ?, ?)`,
   );
   for (const item of SEMILLA_PRODUCTOS) {
     insert.run(
@@ -61,6 +77,7 @@ function seedProductos(db) {
       item.nombre,
       item.categoria,
       JSON.stringify(item.aliases || []),
+      item.minimo ?? minimoDe(item.categoria),
     );
   }
 }
@@ -141,6 +158,8 @@ export function stockByPunto(db, puntoId) {
               p.nombre as nombre,
               p.slug as slug,
               p.foto_path as foto_path,
+              p.minimo as minimo,
+              max(m.created_at) as movido_at,
               coalesce(sum(case when m.tipo = 'entra' then m.cantidad else 0 end), 0)
             - coalesce(sum(case when m.tipo = 'sale' then m.cantidad else 0 end), 0)
               as stock
@@ -148,7 +167,7 @@ export function stockByPunto(db, puntoId) {
        left join productos p on p.id = m.producto_id
        where m.punto_id = ?
        group by m.categoria, m.producto_id
-       having stock > 0
+       having stock >= 0
        order by m.categoria, nombre`,
     )
     .all(puntoId);
@@ -191,13 +210,15 @@ export function listPuntos(db) {
               p.nombre as nombre,
               p.slug as slug,
               p.foto_path as foto_path,
+              p.minimo as minimo,
+              max(m.created_at) as movido_at,
               coalesce(sum(case when m.tipo = 'entra' then m.cantidad else 0 end), 0)
             - coalesce(sum(case when m.tipo = 'sale' then m.cantidad else 0 end), 0)
               as stock
        from movimientos m
        left join productos p on p.id = m.producto_id
        group by m.punto_id, m.categoria, m.producto_id
-       having stock > 0
+       having stock >= 0
        order by m.punto_id, m.categoria, nombre`,
     )
     .all();
@@ -211,6 +232,8 @@ export function listPuntos(db) {
       slug: s.slug,
       foto_path: s.foto_path,
       stock: s.stock,
+      minimo: s.minimo,
+      movido_at: s.movido_at,
     });
   }
   return puntos.map((p) => ({
@@ -463,9 +486,9 @@ export function insertProducto(db, { nombre, categoria, aliases = [] }) {
   const id = randomUUID();
   try {
     db.prepare(
-      `insert into productos (id, slug, nombre, categoria, aliases)
-       values (?, ?, ?, ?, ?)`,
-    ).run(id, slug, nombre, categoria, JSON.stringify(aliases));
+      `insert into productos (id, slug, nombre, categoria, aliases, minimo)
+       values (?, ?, ?, ?, ?, ?)`,
+    ).run(id, slug, nombre, categoria, JSON.stringify(aliases), minimoDe(categoria));
   } catch (err) {
     if (isUniqueError(err)) {
       return { created: false, row: getProductoBySlug(db, slug) };
