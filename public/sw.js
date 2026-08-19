@@ -1,4 +1,18 @@
-const CACHE = "insumos-v7";
+// Service worker.
+//
+// El fallo que motivó esta versión: la estrategia era cache-first sin
+// revalidar, así que un archivo ya cacheado no se volvía a pedir nunca. Cada
+// despliegue de front dependía de que alguien recordara subir CACHE a mano; el
+// día que se olvidó, la gente siguió viendo la versión vieja aunque el
+// servidor ya tuviera la nueva.
+//
+// Ahora:
+//   · navegación (HTML) → red primero, caché como respaldo. Un despliegue se
+//     ve en la siguiente carga, sin depender de la versión.
+//   · estáticos        → se sirve la caché al instante y se refresca por
+//     detrás (stale-while-revalidate). Sigue abriendo sin señal.
+//   · /api/            → siempre red. El inventario nunca se sirve viejo.
+const CACHE = "insumos-v8";
 const SHELL = [
   "/",
   "/index.html",
@@ -42,10 +56,48 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function esNavegacion(req) {
+  return (
+    req.mode === "navigate" ||
+    (req.method === "GET" && (req.headers.get("accept") || "").includes("text/html"))
+  );
+}
+
+async function redPrimero(req) {
+  try {
+    const res = await fetch(req);
+    if (res && res.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(req, res.clone());
+    }
+    return res;
+  } catch {
+    return (await caches.match(req)) || (await caches.match("/offline.html"));
+  }
+}
+
+async function cacheYRefresca(req) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(req);
+  const red = fetch(req)
+    .then((res) => {
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
+    })
+    .catch(() => null);
+  if (cached) {
+    // No esperamos a la red: la respuesta sale ya y la caché queda al día
+    // para la próxima carga.
+    return cached;
+  }
+  return (await red) || (await caches.match("/offline.html"));
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  const url = new URL(req.url);
   if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith("/api/")) {
@@ -53,10 +105,5 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).catch(() => caches.match("/offline.html"));
-    }),
-  );
+  event.respondWith(esNavegacion(req) ? redPrimero(req) : cacheYRefresca(req));
 });
