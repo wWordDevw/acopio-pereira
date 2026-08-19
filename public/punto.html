@@ -11,6 +11,20 @@
   </head>
   <body>
     <main class="wrap wrap-punto">
+      <aside class="puntos-nav" aria-labelledby="puntos-nav-titulo">
+        <p class="puntos-nav-kicker" id="puntos-nav-titulo">Centros de acopio</p>
+        <label class="sr-only" for="puntos-nav-buscar">Buscar centro</label>
+        <input
+          id="puntos-nav-buscar"
+          class="puntos-nav-buscar"
+          type="search"
+          placeholder="Buscar centro"
+          autocomplete="off"
+        />
+        <ul id="puntos-nav-lista" class="puntos-nav-lista"></ul>
+      </aside>
+
+      <div class="punto-main">
       <header class="punto-head">
         <a class="nav-back" href="/">← Mapa</a>
         <p class="brand">Insumos Pereira</p>
@@ -25,6 +39,16 @@
           <p id="bodega-total" class="bodega-total"></p>
         </div>
         <dl id="bodega-stats" class="bodega-stats"></dl>
+        <div class="bodega-tools">
+          <label class="sr-only" for="bodega-buscar">Buscar producto</label>
+          <input
+            id="bodega-buscar"
+            class="bodega-buscar"
+            type="search"
+            placeholder="Buscar producto"
+            autocomplete="off"
+          />
+        </div>
         <div
           id="bodega-chips"
           class="bodega-chips"
@@ -33,6 +57,8 @@
         ></div>
         <div id="stock" class="aisles"></div>
       </section>
+
+      <p id="bodega-conteo" class="bodega-conteo"></p>
 
       <p id="status" class="status"></p>
 
@@ -196,6 +222,7 @@
         <summary>Últimos movimientos</summary>
         <ul id="movs" class="mov"></ul>
       </details>
+      </div>
     </main>
     <section
       id="orden-ficha"

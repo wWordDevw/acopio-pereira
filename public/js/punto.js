@@ -1,4 +1,5 @@
 import {
+  listPuntos,
   getPunto,
   postMovimiento,
   postOrden,
@@ -157,16 +158,46 @@ function filaStock(item) {
   when.textContent = h.texto;
   name.append(when);
 
-  row.append(name, qty);
+  // Celdas que solo existen en escritorio: en un teléfono estorban, y el CSS
+  // las oculta. La nota y la frescura inline hacen su trabajo en móvil.
+  const estado = document.createElement("div");
+  estado.className = "stock-cel stock-cel--estado";
+  if (item.estado !== "ok") {
+    const badge = document.createElement("span");
+    badge.className = "stock-estado";
+    badge.textContent = item.estado === "agotado" ? "Se acabó" : "Poco";
+    estado.append(badge);
+  }
+
+  const minimo = document.createElement("div");
+  minimo.className = "stock-cel stock-cel--min";
+  minimo.textContent = item.minimo != null ? String(item.minimo) : "";
+
+  const movido = document.createElement("div");
+  movido.className = "stock-cel stock-cel--when";
+  if (h.viejo) movido.classList.add("is-stale");
+  movido.textContent = h.texto;
+
+  row.append(name, estado, qty, minimo, movido);
   return row;
 }
 
-function renderBodega(inventario, filtro, { onFilter, onAddInCat, repaint }) {
+function renderBodega(inventario, filtro, { onFilter, repaint, busqueda }) {
   const chips = qs("bodega-chips");
   const aisles = qs("stock");
   const totalEl = qs("bodega-total");
   const statsEl = qs("bodega-stats");
-  const groups = groupInventario(inventario);
+  const norm = (t) =>
+    String(t || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  const q = norm(busqueda);
+  const filtrado = q
+    ? (inventario || []).filter((i) => norm(itemLabel(i)).includes(q))
+    : inventario;
+
+  const groups = groupInventario(filtrado);
   const todas = groups.flatMap((g) => g.items);
   const units = todas.reduce((sum, i) => sum + i.stock, 0);
   const faltan = todas.filter((i) => i.estado !== "ok");
@@ -178,6 +209,10 @@ function renderBodega(inventario, filtro, { onFilter, onAddInCat, repaint }) {
 
   if (groups.length === 0) {
     totalEl.textContent = "";
+    const conteoVacio = qs("bodega-conteo");
+    if (conteoVacio) {
+      conteoVacio.textContent = busqueda ? "Ningún producto coincide." : "";
+    }
     const empty = document.createElement("div");
     empty.className = "bodega-empty";
     const lead = document.createElement("p");
@@ -245,10 +280,26 @@ function renderBodega(inventario, filtro, { onFilter, onAddInCat, repaint }) {
     );
   }
 
+  const conteo = qs("bodega-conteo");
+  if (conteo) {
+    const total = (inventario || []).length;
+    conteo.textContent =
+      todas.length === total
+        ? `Mostrando ${total} producto${total === 1 ? "" : "s"}`
+        : `Mostrando ${todas.length} de ${total} productos`;
+  }
+
   const head = document.createElement("div");
   head.className = "stock-head";
-  for (const t of ["Producto", "Existencia"]) {
+  for (const [t, cls] of [
+    ["Producto", ""],
+    ["Estado", "stock-cel"],
+    ["Existencia", ""],
+    ["Mínimo", "stock-cel stock-cel--min"],
+    ["Movido", "stock-cel stock-cel--when"],
+  ]) {
     const s = document.createElement("span");
+    if (cls) s.className = cls;
     s.textContent = t;
     head.append(s);
   }
@@ -303,6 +354,55 @@ function renderBodega(inventario, filtro, { onFilter, onAddInCat, repaint }) {
   }
 }
 
+
+
+// Barra lateral de escritorio: saltar a otro centro sin volver al mapa.
+// En móvil no se renderiza nada porque el CSS la oculta y no vale la pena
+// pedir la lista completa por una pantalla que no se ve.
+function renderPuntosNav(lista, actualId, filtro) {
+  const cont = qs("puntos-nav-lista");
+  if (!cont) return;
+  cont.replaceChildren();
+
+  const norm = (t) =>
+    String(t || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  const q = norm(filtro);
+  const visibles = (lista || []).filter((p) => !q || norm(p.nombre).includes(q));
+
+  if (!visibles.length) {
+    const vacio = document.createElement("li");
+    vacio.className = "puntos-nav-vacio";
+    vacio.textContent = "Ningún centro coincide.";
+    cont.append(vacio);
+    return;
+  }
+
+  for (const p of visibles) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = `/punto.html?id=${encodeURIComponent(p.id)}`;
+    if (p.id === actualId) a.setAttribute("aria-current", "page");
+
+    const nombre = document.createElement("span");
+    nombre.className = "puntos-nav-nombre";
+    nombre.textContent = p.nombre;
+
+    const meta = document.createElement("span");
+    meta.className = "puntos-nav-meta";
+    const unidades = (p.inventario || []).reduce((n, i) => n + i.stock, 0);
+    const faltan = (p.inventario || []).filter((i) => i.estado !== "ok").length;
+    meta.textContent = faltan
+      ? `${unidades} u · faltan ${faltan}`
+      : `${unidades} u`;
+
+    a.append(nombre, meta);
+    li.append(a);
+    cont.append(li);
+  }
+}
 
 function renderMovs(list, movimientos, onOpenOrden) {
   list.replaceChildren();
@@ -442,6 +542,7 @@ async function main() {
   let tipo = "entra";
   let modo = "suelto";
   let filtroCat = null;
+  let busquedaProducto = "";
   let lastData = null;
   let categoriaActiva = null;
   let loteDraft = null;
@@ -467,11 +568,11 @@ async function main() {
       ? ""
       : `Creado ${formatWhen(data.created_at)}`;
     renderBodega(data.inventario, filtroCat, {
+      busqueda: busquedaProducto,
       onFilter: (slug) => {
         filtroCat = slug;
         if (lastData) paint(lastData);
       },
-      onAddInCat: openRegistrarOn,
       repaint: () => {
         if (lastData) paint(lastData);
       },
@@ -1200,6 +1301,37 @@ async function main() {
         status.classList.add("is-error");
       }
     });
+  }
+
+  const buscarProducto = qs("bodega-buscar");
+  if (buscarProducto) {
+    buscarProducto.addEventListener("input", () => {
+      busquedaProducto = buscarProducto.value.trim();
+      if (lastData) paint(lastData);
+    });
+  }
+
+  // La lista de centros solo se pide si la barra lateral está a la vista.
+  const navLista = qs("puntos-nav-lista");
+  if (navLista && window.matchMedia("(min-width: 64rem)").matches) {
+    let centros = [];
+    let filtroCentro = "";
+    const buscarCentro = qs("puntos-nav-buscar");
+    if (buscarCentro) {
+      buscarCentro.addEventListener("input", () => {
+        filtroCentro = buscarCentro.value.trim();
+        renderPuntosNav(centros, id, filtroCentro);
+      });
+    }
+    listPuntos()
+      .then((res) => {
+        centros = res.puntos || [];
+        renderPuntosNav(centros, id, filtroCentro);
+      })
+      .catch(() => {
+        // Sin lista de centros la página sigue sirviendo: es navegación
+        // auxiliar, no el contenido.
+      });
   }
 
   try {
