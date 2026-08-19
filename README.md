@@ -67,6 +67,24 @@ Reglas que el feed respeta y conviene no romper al tocarlo:
   Albergue). Los registros de prueba no entran: §7.5 trata los lugares
   inventados como causal de suspensión del registro.
 
+## Inventario
+
+La bodega del detalle es una **rejilla, no una `<table>`**: la misma marcación
+se reordena en pantalla angosta sin scroll horizontal.
+
+El color solo significa **nivel de existencias** — agotado, poco, ok. La
+categoría se distingue por posición y rótulo, nunca por tono; por eso ya no hay
+un color por categoría.
+
+El umbral vive en `productos.minimo`, editable por producto. Arranca con el
+valor de su categoría (`api/src/minimos.js`): agua 50, comida 30, cobijas y
+ropa e higiene 20, niños 15, medicinas y mascotas y otro 10.
+
+Los productos agotados **siguen apareciendo en cero**. Es la información que le
+dice a alguien que este punto necesita algo, y por eso la consulta de
+inventario ya no los descarta. Quien solo quiera existencias positivas filtra
+por `stock > 0`, como ya hacen `consultar.js` y el bot.
+
 ## Bot WhatsApp
 
 El bot (`bot/`) usa un transporte intercambiable. Por defecto es **WAHA** (`WHATSAPP_PROVIDER=waha`) contra el WAHA ya desplegado en `https://waha.vowtech.lat`. No hay servicio `waha` ni contenedor Meta en este repo. El nombre de sesión **no va en el código**: se pone `WAHA_SESSION` en el Environment de Dokploy (hoy la sesión viva se llama `JJ`).

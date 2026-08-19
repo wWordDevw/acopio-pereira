@@ -11,6 +11,36 @@
   --focus: #b34116;
   --pin: #b34116;
   --pin-empty: #8a6a4a;
+
+  /* Neutros con sesgo cálido, para que convivan con el papel crema. */
+  --ink-2: #4a3d35;
+  --faint: #9c8b7e;
+  --line-soft: #ddd2c4;
+  --line-hair: #ece3d7;
+  --surface: #f1ebe0;
+  --surface-2: #e8e0d2;
+  --link: #1d6fd4;
+
+  /* Color semántico: solo nivel de existencias. Nada más lo usa. */
+  --danger: #b3261e;
+  --danger-tint: #fbeae8;
+  --warn: #8a5a08;
+  --warn-tint: #fbf1dd;
+
+  /* Escala tipográfica. Seis pasos; fuera de aquí no se inventan tamaños. */
+  --fs-0: 0.72rem;
+  --fs-1: 0.82rem;
+  --fs-2: 0.94rem;
+  --fs-3: 1.08rem;
+  --fs-4: 1.24rem;
+  --fs-5: 1.42rem;
+
+  /* Escala de espaciado. */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
 }
 
 * {
@@ -616,198 +646,253 @@ path.yo-accuracy {
   margin-bottom: 0.25rem;
 }
 
+/* ── Bodega ────────────────────────────────────────────────────────────────
+   Rejilla, no <table>: la misma marcación se reordena en pantalla angosta.
+   El color aquí solo significa nivel de existencias — agotado, bajo, ok.
+   La categoría se distingue por posición y rótulo, nunca por tono.        */
+
 .bodega {
-  margin: 0 0 1.1rem;
+  margin-top: var(--sp-5);
 }
 
 .bodega-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 0 0.55rem;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
 }
 
 .bodega-head h2 {
   margin: 0;
-  font-size: 0.78rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: var(--fs-5);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .bodega-total {
   margin: 0;
+  font-size: var(--fs-2);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  font-size: 1.05rem;
+}
+
+/* Resumen: unidades, productos, frescura. */
+.bodega-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: var(--sp-3);
+  background: var(--surface);
+}
+
+.bodega-stat {
+  padding: var(--sp-2) var(--sp-3);
+  border-right: 1px solid var(--line-soft);
+}
+
+.bodega-stat:last-child {
+  border-right: 0;
+}
+
+.bodega-stat dt {
+  margin: 0;
+  font-size: var(--fs-0);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bodega-stat dd {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.bodega-stat dd.is-stale {
+  color: var(--warn);
 }
 
 .bodega-chips {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   display: flex;
-  gap: 0.4rem;
-  overflow-x: auto;
-  padding: 0.15rem 0 0.55rem;
-  margin: 0 0 0.35rem;
-  background: var(--paper);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-3);
 }
 
 .chip {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  width: auto;
-  margin: 0;
-  padding: 0.42rem 0.7rem;
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 700;
-  border: 2px solid var(--line);
-  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
   background: var(--card);
-  color: var(--ink);
+  color: var(--ink-2);
+  padding: 0.3rem 0.6rem;
+  font: inherit;
+  font-size: var(--fs-1);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .chip:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-.chip-mark,
-.cat-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.55rem;
-  height: 1.55rem;
-  padding: 0 0.2rem;
-  border-radius: 0.28rem;
-  background: var(--aisle, var(--brand));
-  color: #fffaf3;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .chip.is-on {
-  background: var(--aisle, var(--brand));
-  color: #fffaf3;
+  background: var(--ink);
   border-color: var(--ink);
+  color: var(--paper);
 }
 
-.chip.is-on .chip-mark {
-  background: #fffaf3;
-  color: var(--ink);
+.chip-count {
+  margin-left: 0.25rem;
+  font-weight: 500;
+  color: var(--muted);
 }
 
+.chip.is-on .chip-count {
+  color: var(--faint);
+}
+
+/* Tabla */
 .aisles {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.aisle {
-  --aisle: var(--muted);
+  margin-top: var(--sp-3);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  overflow: hidden;
   background: var(--card);
-  border: 2px solid var(--line);
-  border-left-width: 0.55rem;
-  border-left-color: var(--aisle);
-  border-radius: 0.45rem;
-  padding: 0.65rem 0.7rem 0.75rem;
 }
 
-.aisle-head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem 0.5rem;
-  margin: 0 0 0.55rem;
-}
-
-.aisle-title {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.aisle-name {
-  margin: 0;
-  font-size: 0.78rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
-.aisle-qty {
-  margin: 0;
-  flex: 0 0 auto;
-  font-variant-numeric: tabular-nums;
-  font-size: 1.55rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-button.btn.btn-aisle-add,
-button.btn.btn-compact {
-  width: auto;
-  flex: 0 0 auto;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.82rem;
-}
-
-.bins {
+/* Dos columnas siempre: descripción a la izquierda, cifra a la derecha.
+   Nada de una tercera columna que en un teléfono solo produce desborde. */
+.stock-head,
+.stock-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-3);
+  padding: 0.55rem var(--sp-3);
 }
 
-.bins.is-single {
-  grid-template-columns: 1fr;
-}
-
-.bin {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-height: 4.1rem;
-  padding: 0.5rem 0.55rem;
-  background: var(--paper);
-  border: 2px solid var(--line);
-  border-radius: 0.35rem;
-}
-
-.bin-foto {
-  width: 100%;
-  height: 4.2rem;
-  object-fit: cover;
-  border-radius: 0.25rem;
-  border: 1px solid var(--line);
-  margin: 0 0 0.25rem;
-}
-
-.bin-name {
-  margin: 0;
+.stock-head {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-0);
   font-weight: 700;
-  font-size: 0.92rem;
-  line-height: 1.2;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stock-head span:last-child,
+.stock-row .stock-qty {
+  text-align: right;
+}
+
+.stock-group {
+  padding: 0.4rem var(--sp-3);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-0);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.stock-row {
+  border-bottom: 1px solid var(--line-hair);
+  font-size: var(--fs-2);
+}
+
+.stock-row:last-child {
+  border-bottom: 0;
+}
+
+/* Estado: franja e intensidad suave, para que el texto siga leyéndose. */
+.stock-row.is-agotado {
+  background: var(--danger-tint);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.stock-row.is-bajo {
+  background: var(--warn-tint);
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+.stock-name {
+  min-width: 0;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
-.bin-qty {
-  margin: 0;
-  margin-top: auto;
-  font-variant-numeric: tabular-nums;
-  font-size: 1.4rem;
-  font-weight: 800;
-  line-height: 1;
+.stock-note {
+  display: block;
+  font-size: var(--fs-0);
+  font-weight: 400;
+  color: var(--muted);
 }
+
+.stock-row.is-agotado .stock-note {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.stock-row.is-bajo .stock-note {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.stock-qty {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-qty span {
+  font-size: var(--fs-0);
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 0.15rem;
+}
+
+/* La frescura viaja bajo el nombre, no en columna propia. */
+.stock-when {
+  display: block;
+  font-size: var(--fs-0);
+  font-weight: 400;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-when.is-stale {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.stock-more {
+  display: block;
+  width: 100%;
+  padding: 0.5rem var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line-hair);
+  background: var(--card);
+  color: var(--link);
+  font: inherit;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stock-more:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
 
 .bodega-empty {
   padding: 1.1rem 0.85rem;
@@ -891,14 +976,15 @@ button.btn.btn-compact {
   line-height: 1.15;
 }
 
+/* Seleccionado = contraste, no color de categoría. */
 .cat-tile.is-on {
-  background: var(--aisle, var(--brand));
-  color: #fffaf3;
+  background: var(--ink);
+  color: var(--card);
   border-color: var(--ink);
 }
 
 .cat-tile.is-on .cat-mark {
-  background: #fffaf3;
+  background: var(--card);
   color: var(--ink);
 }
 
@@ -945,42 +1031,6 @@ button.btn.btn-compact {
 
 .movs-fold .mov {
   margin-top: 0.65rem;
-}
-
-[data-cat="comida"] {
-  --aisle: #c45c12;
-}
-
-[data-cat="medicinas"] {
-  --aisle: #8b1e3f;
-}
-
-[data-cat="higiene"] {
-  --aisle: #2a7a6a;
-}
-
-[data-cat="ninos"] {
-  --aisle: #b36a12;
-}
-
-[data-cat="cobijas"] {
-  --aisle: #5b3d8f;
-}
-
-[data-cat="agua"] {
-  --aisle: #1a6f9a;
-}
-
-[data-cat="ropa"] {
-  --aisle: #3d5a80;
-}
-
-[data-cat="mascotas"] {
-  --aisle: #6b4a2a;
-}
-
-[data-cat="otro"] {
-  --aisle: #5c5348;
 }
 
 @media (min-width: 40rem) {
